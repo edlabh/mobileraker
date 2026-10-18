@@ -32,8 +32,9 @@ dependencies:
   # Anúncios — tipos AdSize/AdWithView usados em ads/admobs.dart
   google_mobile_ads: ^9.0.0
 
-  # WebRTC — câmeras go2rtc/mediaMTX/camera-streamer (pin do cache local, AGP8-safe)
+  # WebRTC — câmeras go2rtc/mediaMTX/camera-streamer
   flutter_webrtc: ^1.6.2+hotfix.4
+  web_socket_channel: ^3.0.0
   dio: ^5.8.0+1
 
   # Persistência — adapters Hive dos modelos locais (temas/grupos)

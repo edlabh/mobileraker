@@ -4,23 +4,25 @@
  */
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:common/data/enums/webcam_service_type.dart';
 import 'package:common/util/logger.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show protected;
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'camerastreamer_manager.dart';
-import 'creality_rtc_manager.dart';
 import 'data/webrtc_connection_event.dart';
-import 'go2rtc_manager.dart';
-import 'mediamtx_manager.dart';
+
+part 'camerastreamer_manager.dart';
+part 'creality_rtc_manager.dart';
+part 'go2rtc_manager.dart';
+part 'mediamtx_manager.dart';
 
 /// Gerenciador WebRTC de uma câmera (por tipo de serviço).
-abstract class WebRTCManager {
+abstract class WebRtcManager {
   /// Cria o gerenciador adequado para o tipo de câmera.
-  static WebRTCManager forService({
+  static WebRtcManager forService({
     required WebcamServiceType service,
     required Uri camUri,
     required Dio dio,
@@ -36,28 +38,27 @@ abstract class WebRTCManager {
   }
 
   /// Eventos de estado da conexão.
-  Stream<WebRTCConnectionEvent> get connectionEvents;
+  Stream<WebRtcConnectionEvent> get connectionEvents;
 
   /// Renderer de vídeo (usado pelo `RTCVideoView`).
   RTCVideoRenderer get renderer;
-
-  bool get isInitialized;
 
   Future<void> initialize();
 
   Future<void> dispose();
 }
 
-/// Base comum dos gerenciadores: PeerConnection, ICE, renderer e eventos.
-abstract class WebRTCManagerBase implements WebRTCManager {
-  WebRTCManagerBase({required this.camUri, required this.dio, this.headers = const {}});
+/// Base comum dos gerenciadores: PeerConnection, renderer, eventos e os
+/// utilitários do protocolo WHEP (oferta/resposta e trickle ICE).
+abstract class WebRtcManagerBase implements WebRtcManager {
+  WebRtcManagerBase({required this.camUri, required this.dio, this.headers = const {}});
 
   final Uri camUri;
   final Dio dio;
   final Map<String, String> headers;
 
   /// Servidores STUN usados pelo pacote oficial.
-  static const List<Map<String, dynamic>> iceServers = [
+  static const List<Map<String, dynamic>> _stunServers = [
     {'urls': 'stun:stun.l.google.com:19302'},
     {'urls': 'stun:stun1.l.google.com:19302'},
     {'urls': 'stun:stun2.l.google.com:19302'},
@@ -66,114 +67,161 @@ abstract class WebRTCManagerBase implements WebRTCManager {
   ];
 
   final RTCVideoRenderer _renderer = RTCVideoRenderer();
-  final StreamController<WebRTCConnectionEvent> _events = StreamController<WebRTCConnectionEvent>.broadcast();
+  final StreamController<WebRtcConnectionEvent> _events = StreamController<WebRtcConnectionEvent>.broadcast();
 
   RTCPeerConnection? _peerConnection;
-  bool _initialized = false;
+  bool _disposed = false;
+
+  String? _remoteIceUfrag;
+  String? _remoteIcePwd;
 
   @override
-  Stream<WebRTCConnectionEvent> get connectionEvents => _events.stream;
+  Stream<WebRtcConnectionEvent> get connectionEvents => _events.stream;
 
   @override
   RTCVideoRenderer get renderer => _renderer;
 
-  @override
-  bool get isInitialized => _initialized;
+  String get _logTag => '[${runtimeType}#${identityHashCode(this)})]';
 
-  @protected
-  RTCPeerConnection? get peerConnection => _peerConnection;
-
-  @protected
-  void emitEvent(WebRTCConnectionEvent event) {
-    talker.info('WebRTC[$runtimeType]: $event');
+  /// Estado atual da conexão; ao mudar, emite o evento correspondente.
+  set _connectionState(WebRtcConnectionEvent event) {
+    talker.info('$_logTag $event');
     if (!_events.isClosed) _events.add(event);
   }
 
+  /// Configuração da PeerConnection (unified-plan + STUNs do Google).
+  Map<String, dynamic> _linkToIceServers() => {
+        'iceServers': _stunServers,
+        'sdpSemantics': 'unified-plan',
+      };
+
   @override
   Future<void> initialize() async {
-    if (_initialized) return;
-    _initialized = true;
-    talker.info('WebRTC[$runtimeType]: inicializando (camUri=$camUri)...');
-    emitEvent(const WebRTCConnectionEvent(state: WebRTCConnectionState.connecting));
+    if (_disposed) return;
+    _connectionState = const WebRtcConnectionEventConnecting();
     try {
-      await _renderer.initialize();
-      talker.info('WebRTC[$runtimeType]: renderer inicializado');
-      final pc = await createPeerConnection({
-        'iceServers': iceServers,
-        'sdpSemantics': 'unified-plan',
-      });
-      talker.info('WebRTC[$runtimeType]: peer connection criada');
-      _peerConnection = pc;
-      pc.onTrack = (RTCTrackEvent event) {
-        if (event.streams.isNotEmpty) {
-          _renderer.srcObject = event.streams.first;
-          emitEvent(const WebRTCConnectionEvent(state: WebRTCConnectionState.connected));
-        }
-      };
-      pc.onConnectionState = (RTCPeerConnectionState state) {
-        switch (state) {
-          case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
-            emitEvent(const WebRTCConnectionEvent(state: WebRTCConnectionState.connected));
-          case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-            emitEvent(const WebRTCConnectionEvent(
-              state: WebRTCConnectionState.failed,
-              message: 'Falha na conexão WebRTC',
-            ));
-          case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
-            emitEvent(const WebRTCConnectionEvent(
-              state: WebRTCConnectionState.disconnected,
-              message: 'Conexão WebRTC interrompida',
-            ));
-          case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
-            emitEvent(const WebRTCConnectionEvent(state: WebRTCConnectionState.closed));
-          default:
-            break;
-        }
-      };
-      pc.onIceCandidate = (RTCIceCandidate? candidate) => onLocalCandidate(candidate);
-      await pc.addTransceiver(
-        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
-        init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
-      );
-      await connect(pc);
+      await _loadStream();
+      await _setupPeerConnection();
     } catch (error) {
-      talker.error('WebRTC[$runtimeType]: falha ao iniciar', error);
-      emitEvent(WebRTCConnectionEvent(
-        state: WebRTCConnectionState.failed,
-        message: 'Não foi possível iniciar a câmera WebRTC',
-        error: error,
-      ));
+      _connectionState = WebRtcConnectionEventFailed(error);
     }
   }
 
-  /// Implementado por cada backend (sinalização do offer/resposta).
-  @protected
-  Future<void> connect(RTCPeerConnection pc);
-
-  /// Chamado quando um candidato ICE local é descoberto (trickle).
-  @protected
-  Future<void> onLocalCandidate(RTCIceCandidate? candidate) async {}
-
-  @protected
-  Future<RTCSessionDescription> createOffer(RTCPeerConnection pc) async {
-    final offer = await pc.createOffer({'offerToReceiveVideo': true});
-    await pc.setLocalDescription(offer);
-    return await pc.getLocalDescription() ?? offer;
+  /// Inicializa o renderer de vídeo.
+  Future<void> _loadStream() async {
+    await _renderer.initialize();
   }
 
-  @protected
-  Future<void> applyAnswer(RTCSessionDescription answer) async {
+  /// Configura a PeerConnection e inicia a sinalização do backend.
+  Future<void> _setupPeerConnection();
+
+  // ── Handlers compartilhados ──────────────────────────────────────────────
+
+  void _onTrack(RTCTrackEvent event) {
+    talker.info('$_logTag Received RTCTrackEvent');
+    if (event.streams.isNotEmpty) {
+      _renderer.srcObject = event.streams.first;
+      _connectionState = const WebRtcConnectionEventConnected();
+    }
+  }
+
+  void _onConnectionState(RTCPeerConnectionState state) {
+    switch (state) {
+      case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
+        _connectionState = const WebRtcConnectionEventConnected();
+      case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
+        _connectionState = const WebRtcConnectionEventDisconnected();
+      case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+        _connectionState = const WebRtcConnectionEventFailed('Peer connection failed');
+      case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
+        _connectionState = const WebRtcConnectionEventClosed();
+      default:
+        break;
+    }
+  }
+
+  void _onSignalingState(RTCSignalingState state) {
+    talker.debug('$_logTag signaling state: $state');
+  }
+
+  // ── Utilitários WHEP / trickle ICE ───────────────────────────────────────
+
+  /// Aplica a oferta remota e guarda as credenciais ICE (para o trickle).
+  Future<void> _parseOffer(RTCSessionDescription offer) async {
+    _remoteIceUfrag = _extractIceValue(offer.sdp, 'a=ice-ufrag:');
+    _remoteIcePwd = _extractIceValue(offer.sdp, 'a=ice-pwd:');
+    await _peerConnection?.setRemoteDescription(offer);
+  }
+
+  /// Aplica a resposta remota (fluxo "client offer").
+  Future<void> _onRemoteAnswer(RTCSessionDescription answer) async {
     await _peerConnection?.setRemoteDescription(answer);
   }
 
-  @protected
-  Future<void> addRemoteCandidate(RTCIceCandidate candidate) async {
-    await _peerConnection?.addCandidate(candidate);
+  /// Endpoint do fluxo "client offer" (usado por camera-streamer).
+  Uri get _offerUri => camUri.replace(query: '');
+
+  /// Cria a oferta e envia via POST (fluxo "client offer" — camera-streamer).
+  Future<void> _sendOffer() async {
+    final pc = _peerConnection;
+    if (pc == null) return;
+    final offer = await pc.createOffer({});
+    await pc.setLocalDescription(offer);
+    await _waitForIceGathering(pc);
+    final localDescription = await pc.getLocalDescription();
+    final response = await dio.postUri<String>(
+      _offerUri,
+      data: localDescription?.sdp ?? offer.sdp,
+      options: Options(
+        headers: {...headers, 'Content-Type': 'application/sdp'},
+        responseType: ResponseType.plain,
+        validateStatus: (status) => status != null && status < 400,
+      ),
+    );
+    final answer = response.data;
+    if (answer is String && answer.isNotEmpty) {
+      await _onRemoteAnswer(RTCSessionDescription(answer, 'answer'));
+    }
   }
 
-  /// Espera a coleta de ICE terminar (backends sem trickle, como mediaMTX).
-  @protected
-  Future<void> waitForIceGathering(RTCPeerConnection pc, {Duration timeout = const Duration(seconds: 3)}) async {
+  /// Envia um candidato local como fragmento SDP (trickle WHEP).
+  Future<void> _sendLocalCandidates(String sessionUrl, RTCIceCandidate candidate) async {
+    try {
+      final fragment = _generateSdpFragment(candidate);
+      if (fragment == null) return;
+      await dio.patchUri(
+        Uri.parse(sessionUrl),
+        data: fragment,
+        options: Options(headers: {'Content-Type': 'application/trickle-ice-sdpfrag'}),
+      );
+    } catch (error) {
+      talker.error('$_logTag Error sending ICE candidates', error);
+    }
+  }
+
+  /// Gera o fragmento SDP (trickle) para um candidato local.
+  String? _generateSdpFragment(RTCIceCandidate candidate) {
+    final ufrag = _remoteIceUfrag;
+    final pwd = _remoteIcePwd;
+    final sdpMid = candidate.sdpMid;
+    final value = candidate.candidate;
+    if (ufrag == null || pwd == null || sdpMid == null || value == null) return null;
+    final buffer = StringBuffer()
+      ..write('a=ice-ufrag:${_unquoteCredential(ufrag)}\r\n')
+      ..write('a=ice-pwd:${_unquoteCredential(pwd)}\r\n')
+      ..write('m=video 9 UDP/TLS/RTP/SAVPF 96\r\n')
+      ..write('a=mid:$sdpMid\r\n')
+      ..write('a=$value\r\n');
+    return buffer.toString();
+  }
+
+  /// Remove as aspas de um valor de credencial ICE.
+  String _unquoteCredential(String? value) => (value ?? '').replaceAll('"', '').trim();
+
+  Future<void> _waitForIceGathering(
+    RTCPeerConnection pc, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
     if (pc.iceGatheringState == RTCIceGatheringState.RTCIceGatheringStateComplete) return;
     final completer = Completer<void>();
     pc.onIceGatheringState = (state) {
@@ -184,11 +232,21 @@ abstract class WebRTCManagerBase implements WebRTCManager {
     await completer.future.timeout(timeout, onTimeout: () {});
   }
 
+  static String? _extractIceValue(String? sdp, String prefix) {
+    if (sdp == null) return null;
+    for (final line in sdp.split('\r\n')) {
+      if (line.startsWith(prefix)) {
+        return line.substring(prefix.length);
+      }
+    }
+    return null;
+  }
+
   @override
   Future<void> dispose() async {
+    _disposed = true;
     await _peerConnection?.close();
     _peerConnection = null;
-    _initialized = false;
     try {
       await _renderer.dispose();
     } catch (_) {

@@ -3,59 +3,73 @@
  * All rights reserved.
  */
 
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:common/util/logger.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
-
-import 'data/webrtc_connection_event.dart';
-import 'webrtc_manager.dart';
+part of 'webrtc_manager.dart';
 
 /// go2rtc — sinalização pela WebSocket API (`/api/ws?src=<stream>`).
-class Go2RtcManager extends WebRTCManagerBase {
+class Go2RtcManager extends WebRtcManagerBase {
   Go2RtcManager({required super.camUri, required super.dio, super.headers});
 
-  WebSocket? _socket;
+  WebSocketChannel? _channel;
+  bool _resetting = false;
 
+  /// Transforma a URL da câmera na URL da API do go2rtc.
   Uri get _go2RtcApiUri {
     final src = camUri.queryParameters['src'] ?? camUri.queryParameters['name'] ?? 'camera';
-    return camUri.replace(
+    final apiUri = camUri.replace(
       scheme: camUri.scheme == 'https' ? 'wss' : 'ws',
       path: '/api/ws',
       queryParameters: {'src': src},
     );
+    talker.info('$_logTag Transformed camUri to apiUri: $apiUri');
+    return apiUri;
   }
 
   @override
-  Future<void> connect(RTCPeerConnection pc) async {
-    talker.info('WebRTC[$runtimeType]: conectando ao WebSocket ${_go2RtcApiUri}...');
-    final socket = await WebSocket.connect(_go2RtcApiUri.toString()).timeout(const Duration(seconds: 6));
-    talker.info('WebRTC[$runtimeType]: WebSocket conectada');
-    _socket = socket;
-    socket.listen(
-      (dynamic message) => _onMessage(message),
-      onError: (Object error) => emitEvent(WebRTCConnectionEvent(
-        state: WebRTCConnectionState.failed,
-        message: 'Erro na conexão WebSocket do go2rtc',
-        error: error,
-      )),
-      onDone: () {
-        if (socket.closeCode != 1000) {
-          emitEvent(const WebRTCConnectionEvent(
-            state: WebRTCConnectionState.disconnected,
-            message: 'WebSocket do go2rtc encerrada',
-          ));
-        }
-      },
+  Future<void> _setupPeerConnection() async {
+    talker.info('$_logTag Setting up PeerConnection for Go2Rtc');
+    final pc = await createPeerConnection(_linkToIceServers());
+    _peerConnection = pc;
+    pc.onTrack = _onTrack;
+    pc.onConnectionState = _onConnectionState;
+    pc.onSignalingState = _onSignalingState;
+    pc.onIceCandidate = _onLocalIceCandidate;
+    await pc.addTransceiver(
+      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+      init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
     );
-    final offer = await createOffer(pc);
-    socket.add(jsonEncode({'type': 'webrtc/offer', 'value': offer.sdp}));
-    talker.info('WebRTC[$runtimeType]: offer enviado (${offer.sdp?.length} bytes)');
+    await _setupWebSocket();
   }
 
-  Future<void> _onMessage(dynamic message) async {
+  Future<void> _setupWebSocket() async {
+    talker.info('$_logTag Setting up WebSocket for Go2Rtc');
+    final channel = WebSocketChannel.connect(_go2RtcApiUri);
+    _channel = channel;
+    channel.stream.listen(
+      _onChannelMessage,
+      onError: _onChannelError,
+      onDone: _onChannelDone,
+      cancelOnError: false,
+    );
+    await channel.ready;
+    talker.info('$_logTag Go2Rtc WebSocket connected: ${_go2RtcApiUri}');
+    await _sendOffer();
+  }
+
+  Future<void> _sendOffer() async {
+    talker.info('$_logTag Sending offer to Go2Rtc api');
+    final pc = _peerConnection;
+    if (pc == null) return;
+    final offer = await pc.createOffer({});
+    await pc.setLocalDescription(offer);
+    final localDescription = await pc.getLocalDescription();
+    _sendToServer({'type': 'webrtc/offer', 'value': localDescription?.sdp ?? offer.sdp});
+  }
+
+  void _sendToServer(Map<String, dynamic> message) {
+    _channel?.sink.add(jsonEncode(message));
+  }
+
+  void _onChannelMessage(dynamic message) {
     if (message is! String) return;
     final Object? decoded;
     try {
@@ -64,43 +78,78 @@ class Go2RtcManager extends WebRTCManagerBase {
       return;
     }
     if (decoded is! Map) return;
-    talker.info('WebRTC[$runtimeType]: msg do go2rtc: ${decoded['type']}');
     switch (decoded['type']) {
       case 'webrtc/answer':
         final sdp = decoded['value'];
         if (sdp is String && sdp.isNotEmpty) {
-          await applyAnswer(RTCSessionDescription(sdp, 'answer'));
+          _onRemoteAnswer(RTCSessionDescription(sdp, 'answer'));
         }
       case 'webrtc/candidate':
-        var value = (decoded['value'] as String?)?.trim() ?? '';
-        if (value.startsWith('a=')) value = value.substring(2);
+        final value = (decoded['value'] as String?)?.trim() ?? '';
         if (value.isNotEmpty) {
-          await addRemoteCandidate(RTCIceCandidate(value, '0', 0));
+          _onIceCandidate(RTCIceCandidate(value.startsWith('a=') ? value.substring(2) : value, '0', 0));
         }
       case 'error':
-        emitEvent(WebRTCConnectionEvent(
-          state: WebRTCConnectionState.failed,
-          message: '${decoded['value']}',
-        ));
+        _connectionState = WebRtcConnectionEventFailed('${decoded['value']}');
     }
   }
 
-  @override
-  Future<void> onLocalCandidate(RTCIceCandidate? candidate) async {
-    final socket = _socket;
-    final value = candidate?.candidate;
-    if (socket == null || value == null || value.isEmpty) return;
-    socket.add(jsonEncode({'type': 'webrtc/candidate', 'value': value}));
+  void _onChannelError(Object error, [StackTrace? stackTrace]) {
+    talker.error('$_logTag Go2Rtc WebSocket error', error, stackTrace);
+    _connectionState = WebRtcConnectionEventFailed(error);
+    _reset();
+  }
+
+  void _onChannelDone() {
+    talker.info('$_logTag Go2Rtc WebSocket closed');
+    if (!_disposed) {
+      _connectionState = const WebRtcConnectionEventClosed();
+      _reset();
+    }
+  }
+
+  /// Candidato remoto recebido do go2rtc.
+  void _onIceCandidate(RTCIceCandidate candidate) {
+    talker.info('$_logTag Received a new ICE candidate from Go2Rtc');
+    _peerConnection?.addCandidate(candidate);
+  }
+
+  /// Envia candidatos locais ao go2rtc pela WebSocket.
+  void _onLocalIceCandidate(RTCIceCandidate candidate) {
+    final value = candidate.candidate;
+    if (value == null || value.isEmpty) return;
+    _sendToServer({'type': 'webrtc/candidate', 'value': value});
+  }
+
+  /// Recria a conexão (WebSocket + PeerConnection) do zero.
+  Future<void> _reset() async {
+    if (_resetting || _disposed) return;
+    _resetting = true;
+    talker.info('$_logTag Resetting go2rtc manager');
+    try {
+      await _channel?.sink.close();
+      _channel = null;
+      await _peerConnection?.close();
+      _peerConnection = null;
+      if (!_disposed) {
+        _connectionState = const WebRtcConnectionEventConnecting();
+        await _setupPeerConnection();
+      }
+    } catch (error) {
+      talker.error('$_logTag Reset failed', error);
+    } finally {
+      _resetting = false;
+    }
   }
 
   @override
   Future<void> dispose() async {
     try {
-      await _socket?.close();
+      await _channel?.sink.close();
     } catch (_) {
       // socket já encerrado
     }
-    _socket = null;
+    _channel = null;
     await super.dispose();
   }
 }
