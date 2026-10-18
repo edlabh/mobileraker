@@ -62,6 +62,13 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Assinatura local (quando key.properties existe): permite instalar o build
+            // de debug POR CIMA do release sem desinstalar (mesma chave, dados mantidos).
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.release
+            }
+        }
         release {
             signingConfig = signingConfigs.release
         }

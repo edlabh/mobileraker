@@ -17,4 +17,4 @@ export 'license.dart';
 export 'printer_groups/data/model/group_preset.dart';
 export 'printer_groups/data/model/printer_group.dart';
 export 'printer_groups/service/printer_group_service.dart';
-export 'ui/components/webrtc/webrtc.dart';
+export 'webrtc/ui/webrtc.dart';
