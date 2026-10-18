@@ -61,29 +61,40 @@ class DashboardCardsBottomSheet extends HookWidget {
 
         final title = PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight + 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                visualDensity: VisualDensity.compact,
-                titleAlignment: ListTileTitleAlignment.center,
-                title: Text(
-                  'bottom_sheets.dashboard_cards.title',
-                  style: themeData.textTheme.headlineSmall,
-                ).tr(),
-                subtitle: Text(
-                  'bottom_sheets.dashboard_cards.subtitle',
-                  style: themeData.textTheme.bodySmall,
-                ).tr(),
-              ),
-              const Divider(height: 0),
-            ],
+          // Correção local (mesmo padrão das demais sheets): o topBar do
+          // SheetContentScaffold não fornece Material e o ListTile exige um
+          // ancestral Material.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  visualDensity: VisualDensity.compact,
+                  titleAlignment: ListTileTitleAlignment.center,
+                  title: Text(
+                    'bottom_sheets.dashboard_cards.title',
+                    style: themeData.textTheme.headlineSmall,
+                  ).tr(),
+                  subtitle: Text(
+                    'bottom_sheets.dashboard_cards.subtitle',
+                    style: themeData.textTheme.bodySmall,
+                  ).tr(),
+                ),
+                const Divider(height: 0),
+              ],
+            ),
           ),
         );
 
         return SheetContentScaffold(
           topBar: title,
-          body: cssGrid,
+          // Correção local: o body do SheetContentScaffold também não fornece
+          // Material (os InkWell dos previews exigem um ancestral Material).
+          body: Material(
+            type: MaterialType.transparency,
+            child: cssGrid,
+          ),
         );
       }),
     );

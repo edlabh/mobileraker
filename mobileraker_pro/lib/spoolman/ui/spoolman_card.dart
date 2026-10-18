@@ -43,7 +43,7 @@ class SpoolmanCard extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'components.dashboard_cards.spoolman_card.title'.tr(),
+              'pages.dashboard.control.spoolman_card.title'.tr(),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
@@ -116,7 +116,7 @@ class _NoSpoolBody extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text('components.dashboard_cards.spoolman_card.no_spool'.tr()),
+        Text('pages.dashboard.control.spoolman_card.no_spool'.tr()),
         if (uuid != null) ...[
           const SizedBox(height: 12),
           Align(
@@ -126,7 +126,7 @@ class _NoSpoolBody extends ConsumerWidget {
                     BottomSheetConfig(type: ProSheetType.selectSpoolman, data: uuid),
                   ),
               icon: const Icon(Icons.inventory_2_outlined),
-              label: Text('components.dashboard_cards.spoolman_card.select_spool'.tr()),
+              label: Text('pages.dashboard.control.spoolman_card.select_spool'.tr()),
             ),
           ),
         ],
@@ -204,7 +204,7 @@ class _ActiveSpoolBody extends StatelessWidget {
           ],
           const SizedBox(height: 8),
           Text(
-            'components.dashboard_cards.spoolman_card.used'.tr(args: ['${used.toStringAsFixed(0)} g']),
+            'pages.dashboard.control.spoolman_card.used'.tr(args: ['${used.toStringAsFixed(0)} g']),
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -226,7 +226,7 @@ class _ErrorBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'components.dashboard_cards.spoolman_card.provider_error_title'.tr(),
+          'pages.dashboard.control.spoolman_card.provider_error_title'.tr(),
           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 4),

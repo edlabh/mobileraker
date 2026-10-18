@@ -52,26 +52,56 @@ class _SelectSpoolmanBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Material(
-        type: MaterialType.transparency,
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.6,
-          child: DefaultTabController(
-            length: 2,
-            child: Column(
-              children: [
-                const _SheetHeader(),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      _AvailableSpoolsList(machineUUID: machineUUID),
-                      _ScanSpoolQr(machineUUID: machineUUID),
-                    ],
+    // A superfície do sheet é pintada aqui: o `MaterialSheetDecoration` do
+    // smooth_sheets usa o pacote `material_ui`, cujo Theme não enxerga o tema
+    // do app — os sheets acabam caindo no esquema claro padrão (#FEF7FF),
+    // deixando os textos do tema (claros no modo escuro) ilegíveis.
+    // Usamos a cor de superfície do tema do app e calculamos o contraste.
+    final baseTheme = Theme.of(context);
+    final surface = baseTheme.colorScheme.surface;
+    final onSheet = ThemeData.estimateBrightnessForColor(surface) == Brightness.dark
+        ? Colors.white
+        : Colors.black87;
+    final sheetTheme = baseTheme.copyWith(
+      textTheme: baseTheme.textTheme.apply(bodyColor: onSheet, displayColor: onSheet),
+      listTileTheme: baseTheme.listTileTheme.copyWith(
+        textColor: onSheet,
+        titleTextStyle: (baseTheme.listTileTheme.titleTextStyle ?? baseTheme.textTheme.bodyLarge)?.copyWith(
+          color: onSheet,
+        ),
+        subtitleTextStyle: (baseTheme.listTileTheme.subtitleTextStyle ?? baseTheme.textTheme.bodyMedium)?.copyWith(
+          color: onSheet.withValues(alpha: 0.75),
+        ),
+      ),
+      tabBarTheme: baseTheme.tabBarTheme.copyWith(
+        labelColor: baseTheme.colorScheme.primary,
+        unselectedLabelColor: onSheet.withValues(alpha: 0.7),
+      ),
+    );
+
+    return Theme(
+      data: sheetTheme,
+      child: SafeArea(
+        top: false,
+        child: Material(
+          color: surface,
+          child: SizedBox(
+            height: MediaQuery.sizeOf(context).height * 0.6,
+            child: DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  const _SheetHeader(),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _AvailableSpoolsList(machineUUID: machineUUID),
+                        _ScanSpoolQr(machineUUID: machineUUID),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -87,8 +117,8 @@ class _SheetHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return TabBar(
       tabs: [
-        Tab(text: 'select_spool.header.spools'.tr()),
-        Tab(text: 'select_spool.header.qr'.tr()),
+        Tab(text: 'bottom_sheets.select_spool.header.spools'.tr()),
+        Tab(text: 'bottom_sheets.select_spool.header.qr'.tr()),
       ],
     );
   }
@@ -206,13 +236,13 @@ class _ScanSpoolQrState extends ConsumerState<_ScanSpoolQr> {
               FilledButton.tonalIcon(
                 onPressed: _setActive,
                 icon: const Icon(Icons.check),
-                label: Text('select_spool.set_active'.tr()),
+                label: Text('bottom_sheets.select_spool.set_active'.tr()),
               ),
               const SizedBox(width: 12),
               TextButton.icon(
                 onPressed: _scanAgain,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: Text('select_spool.scan_again'.tr()),
+                label: Text('bottom_sheets.select_spool.scan_again'.tr()),
               ),
             ],
           ),
@@ -231,14 +261,14 @@ class _ScanSpoolQrState extends ConsumerState<_ScanSpoolQr> {
               const Icon(Icons.search_off, size: 36),
               const SizedBox(height: 8),
               Text(
-                'select_spool.spool_id_not_found'.tr(args: ['$notFoundId']),
+                'bottom_sheets.select_spool.spool_id_not_found'.tr(args: ['$notFoundId']),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _scanAgain,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: Text('select_spool.scan_again'.tr()),
+                label: Text('bottom_sheets.select_spool.scan_again'.tr()),
               ),
             ],
           ),
@@ -257,14 +287,14 @@ class _ScanSpoolQrState extends ConsumerState<_ScanSpoolQr> {
               const Icon(Icons.error_outline, size: 36),
               const SizedBox(height: 8),
               Text(
-                'select_spool.qr_error'.tr(args: ['$qrError']),
+                'bottom_sheets.select_spool.qr_error'.tr(args: ['$qrError']),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               TextButton.icon(
                 onPressed: _scanAgain,
                 icon: const Icon(Icons.qr_code_scanner),
-                label: Text('select_spool.scan_again'.tr()),
+                label: Text('bottom_sheets.select_spool.scan_again'.tr()),
               ),
             ],
           ),

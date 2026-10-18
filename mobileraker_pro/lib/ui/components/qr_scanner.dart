@@ -58,7 +58,7 @@ class QrScannerState extends State<QrScanner> {
         ),
         placeholderBuilder: (context) => const _QrScannerMessage(
           icon: Icons.qr_code_scanner,
-          message: 'select_spool.qr_loading',
+          message: 'bottom_sheets.select_spool.qr_loading',
         ),
       ),
     );

@@ -71,12 +71,12 @@ class _PrinterPreviewBody extends HookConsumerWidget {
     if (kinematics == 'none') {
       body = _MessageBody(
         icon: Icons.warning_amber_rounded,
-        message: 'components.gcode_preview_card.kinematic_not_supported'.tr(),
+        message: 'pages.dashboard.control.gcode_preview_card.kinematic_not_supported'.tr(),
       );
     } else if (!printing || filename.isEmpty) {
       body = _MessageBody(
         icon: Icons.view_in_ar_outlined,
-        message: 'components.gcode_preview_card.start_preview.hint'.tr(),
+        message: 'pages.dashboard.control.gcode_preview_card.start_preview.hint'.tr(),
       );
     } else if (!started.value) {
       body = _StartPreviewBody(onStart: () => started.value = true);
@@ -105,7 +105,7 @@ class _PrinterPreviewBody extends HookConsumerWidget {
         ListTile(
           dense: true,
           leading: const Icon(Icons.view_in_ar_outlined),
-          title: Text('components.gcode_preview_card.title', style: Theme.of(context).textTheme.titleMedium).tr(),
+          title: Text('pages.dashboard.control.gcode_preview_card.title', style: Theme.of(context).textTheme.titleMedium).tr(),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -158,7 +158,7 @@ class _LivePreviewBody extends HookConsumerWidget {
             TextButton.icon(
               onPressed: () => _openLivePreview(ref),
               icon: const Icon(Icons.open_in_full, size: 16),
-              label: Text('components.gcode_preview_card.follow'.tr()),
+              label: Text('pages.dashboard.control.gcode_preview_card.follow'.tr()),
             ),
           ],
         ),
@@ -188,14 +188,14 @@ class _StartPreviewBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'components.gcode_preview_card.start_preview.hint'.tr(),
+          'pages.dashboard.control.gcode_preview_card.start_preview.hint'.tr(),
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: onStart,
           icon: const Icon(Icons.play_arrow),
-          label: Text('components.gcode_preview_card.start_preview.btn'.tr()),
+          label: Text('pages.dashboard.control.gcode_preview_card.start_preview.btn'.tr()),
         ),
       ],
     );
@@ -284,7 +284,7 @@ class _Preview extends StatelessWidget {
           ListTile(
             dense: true,
             leading: const Icon(Icons.view_in_ar_outlined),
-            title: Text('components.gcode_preview_card.title', style: theme.textTheme.titleMedium).tr(),
+            title: Text('pages.dashboard.control.gcode_preview_card.title', style: theme.textTheme.titleMedium).tr(),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
