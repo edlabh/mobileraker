@@ -36,26 +36,31 @@ class ActionBottomSheet extends ConsumerWidget {
         ?.impliesAppBarDismissal == true));
 
     return SheetContentScaffold(
-      topBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Gap(10),
-          if (arguments.title != null) ...[
-            ListTile(
-              visualDensity: VisualDensity.compact,
-              titleAlignment: ListTileTitleAlignment.center,
-              leading: arguments.leading ?? backButton,
-              trailing: arguments.trailing,
-              iconColor: themeData.colorScheme.primary,
-              // leading: arguments.leading,
-              horizontalTitleGap: 8,
-              title: arguments.title,
-              subtitle: arguments.subtitle,
-              minLeadingWidth: 42,
-            ),
-            const Divider(),
+      // Correção local: o SheetContentScaffold não fornece Material; o header
+      // (ListTile) precisa de um Material ancestral — como o body já tinha.
+      topBar: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Gap(10),
+            if (arguments.title != null) ...[
+              ListTile(
+                visualDensity: VisualDensity.compact,
+                titleAlignment: ListTileTitleAlignment.center,
+                leading: arguments.leading ?? backButton,
+                trailing: arguments.trailing,
+                iconColor: themeData.colorScheme.primary,
+                // leading: arguments.leading,
+                horizontalTitleGap: 8,
+                title: arguments.title,
+                subtitle: arguments.subtitle,
+                minLeadingWidth: 42,
+              ),
+              const Divider(),
+            ],
           ],
-        ],
+        ),
       ),
       body: Material(
         type: MaterialType.transparency,

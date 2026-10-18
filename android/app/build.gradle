@@ -44,7 +44,8 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.mobileraker.android"
+        // Alterado para instalar lado a lado com o app oficial (com.mobileraker.android).
+        applicationId = "com.mobileraker.android.lite"
         minSdk = 25
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

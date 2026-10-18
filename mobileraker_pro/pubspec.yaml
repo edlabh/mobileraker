@@ -1,0 +1,47 @@
+name: mobileraker_pro
+description: >-
+  Stub local do pacote privado `mobileraker_pro`, criado para permitir builds
+  locais do app Mobileraker sem acesso ao repositório privado original.
+  Os recursos PRO (anúncios, Spoolman, fila de impressão, temas e grupos de
+  impressoras) funcionam como placeholders inativos.
+publish_to: none
+version: 2.9.14
+
+environment:
+  sdk: '>=3.8.0 <4.0.0'
+  flutter: '>=3.32.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Pacotes mantidos pela Mobileraker (mesmo path usado pelo app)
+  common:
+    path: ../common
+
+  # Firebase — usado por firebase_options.dart (DefaultFirebaseOptions)
+  firebase_core: ^4.5.0
+
+  # Estado — os providers são consumidos pelo app via hooks_riverpod
+  hooks_riverpod: ^3.3.2
+  flutter_hooks: ^0.21.0
+
+  # Temas — geração de ThemeData fiel ao pacote oficial (mesma base do app)
+  flex_color_scheme: ^8.2.0
+
+  # Anúncios — tipos AdSize/AdWithView usados em ads/admobs.dart
+  google_mobile_ads: ^9.0.0
+
+  # WebRTC placeholder — aceita um Dio no construtor do widget
+  dio: ^5.8.0+1
+
+  # Persistência — adapters Hive dos modelos locais (temas/grupos)
+  hive_ce: ^2.8.0+1
+
+  # Utilidades
+  uuid: ^4.5.2
+  intl: '>=0.18.0 <0.21.0'
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

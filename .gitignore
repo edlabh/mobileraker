@@ -56,3 +56,8 @@ GoogleService-Info.plist
 /lib/license.dart
 firebase.json
 .claude
+
+# Local build artifacts / secrets
+android/app/mobileraker_local.jks
+mobileraker_pro/build/
+mobileraker-2.9.14.apk*

@@ -58,15 +58,18 @@ class SelectFileBottomSheet extends HookConsumerWidget {
     final folderName = split.lastOrNull ?? 'Unknown';
 
     return SheetContentScaffold(
-      topBar: ListTile(
-        visualDensity: VisualDensity.compact,
-        titleAlignment: ListTileTitleAlignment.center,
-        leading: IconButton(onPressed: context.pop, icon: Icon(isRoot ? Icons.close : Icons.arrow_back)),
-        // leading: arguments.leading,
-        horizontalTitleGap: 8,
-        title: Text(isRoot ? tr('bottom_sheets.select_file.title') : folderName),
-        subtitle: Text(split.join(' > ')),
-        minLeadingWidth: 42,
+      topBar: Material(
+        type: MaterialType.transparency,
+        child: ListTile(
+          visualDensity: VisualDensity.compact,
+          titleAlignment: ListTileTitleAlignment.center,
+          leading: IconButton(onPressed: context.pop, icon: Icon(isRoot ? Icons.close : Icons.arrow_back)),
+          // leading: arguments.leading,
+          horizontalTitleGap: 8,
+          title: Text(isRoot ? tr('bottom_sheets.select_file.title') : folderName),
+          subtitle: Text(split.join(' > ')),
+          minLeadingWidth: 42,
+        ),
       ),
       body: _Body(args: args),
     );

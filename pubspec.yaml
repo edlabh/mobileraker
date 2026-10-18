@@ -23,6 +23,11 @@ environment:
 
 
 dependency_overrides:
+  # shared_preferences_android 2.5.x passou a usar bindings JNI (package:jni);
+  # no release o R8 (ativado por padrão pelo Flutter) renomeia
+  # kotlin.coroutines.Continuation e o lookup JNI falha com NoSuchMethodError
+  # no startup. Fixado na linha 2.4.x (Pigeon puro) — mesma base do app oficial.
+  shared_preferences_android: 2.4.28
 #  web: ^0.5.1 # required because network info is using 0.3, but this package is only used by web which we dont build
 #  win32: ^5.9.0 # due to file_picker and share_plus. Do not care as we do  not build for windows!
 
@@ -32,7 +37,7 @@ dependencies:
 
   #packages maintained by mobileraker
   mobileraker_pro:
-    path: ../mobileraker_pro
+    path: mobileraker_pro
   #    path: ../mobileraker_pro_public # Uncomment this line if you want to contribute to the project. Alsoo remove the line above
   common:
     path: common
@@ -186,18 +191,21 @@ dev_dependencies:
   #ads
   google_mobile_ads: ^9.0.0
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
-  ios: true
+  # ios desativado: este estado do repositório não contém AppIcon.appiconset
+  ios: false
   min_sdk_android: 25
-  image_path: "assets/icon/mr_rec.png"
-  #image_path_ios: "assets/icon/mr_rec.png"
+  image_path: "assets/icon/mr_rec_blue.png"
+  #image_path_ios: "assets/icon/mr_rec_blue.png"
   adaptive_icon_background: "#2A2A2A"
-  adaptive_icon_foreground: "assets/icon/ic_launcher_foreground.png"
+  adaptive_icon_foreground: "assets/icon/ic_launcher_foreground_blue.png"
+  adaptive_icon_monochrome: "assets/icon/ic_launcher_monochrome.png"
   remove_alpha_ios: true
   macos:
-    generate: true
-    image_path: "assets/icon/mr_rec.png"
+    # desativado: sem Assets.xcassets no projeto macOS deste repositório
+    generate: false
+    image_path: "assets/icon/mr_rec_blue.png"
 
 flutter_native_splash:
 

@@ -24,20 +24,23 @@ class SortModeBottomSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SheetContentScaffold(
-      topBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Gap(10),
-          ListTile(
-            visualDensity: VisualDensity.compact,
-            titleAlignment: ListTileTitleAlignment.center,
-            // leading: arguments.leading,
-            horizontalTitleGap: 8,
-            title: const Text('pages.files.sort_by.sort_by').tr(),
-            minLeadingWidth: 42,
-          ),
-          const Divider(),
-        ],
+      topBar: Material(
+        type: MaterialType.transparency,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Gap(10),
+            ListTile(
+              visualDensity: VisualDensity.compact,
+              titleAlignment: ListTileTitleAlignment.center,
+              // leading: arguments.leading,
+              horizontalTitleGap: 8,
+              title: const Text('pages.files.sort_by.sort_by').tr(),
+              minLeadingWidth: 42,
+            ),
+            const Divider(),
+          ],
+        ),
       ),
       body: Material(
         type: MaterialType.transparency,
