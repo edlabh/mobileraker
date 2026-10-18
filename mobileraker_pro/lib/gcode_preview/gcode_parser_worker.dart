@@ -10,11 +10,19 @@ import 'dart:typed_data';
 import 'gcode_parser.dart';
 import 'gcode_structure_codec.dart';
 
-/// Erro ocorrido durante a análise do G-code.
-class GCodeParseException implements Exception {
-  const GCodeParseException(this.message);
+/// Erro genérico do pacote de preview de G-code.
+class GCodeException implements Exception {
+  const GCodeException(this.message);
 
   final String message;
+
+  @override
+  String toString() => 'GCodeException: $message';
+}
+
+/// Erro ocorrido durante a análise do G-code.
+class GCodeParseException extends GCodeException {
+  const GCodeParseException(super.message);
 
   @override
   String toString() => 'GCodeParseException: $message';

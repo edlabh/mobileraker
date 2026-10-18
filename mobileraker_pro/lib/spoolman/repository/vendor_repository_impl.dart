@@ -6,10 +6,12 @@
 import '../dto/create_vendor.dart';
 import '../dto/get_vendor.dart';
 import '../dto/update_vendor.dart';
+import 'spoolman_proxy_repository_impl.dart';
 import 'vendor_repository.dart';
 
 /// Implementação via proxy JSON-RPC do Moonraker.
-class VendorRepositoryImpl extends VendorRepository {
+class VendorRepositoryImpl extends SpoolmanProxyRepositoryImpl<GetVendor>
+    implements VendorRepository {
   VendorRepositoryImpl(super.jsonRpcClient, {required super.useV2Response});
 
   @override

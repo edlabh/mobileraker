@@ -8,6 +8,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../data/model/custom_theme_pack.dart';
+import '../repository/custom_theme_repository.dart';
 import '../repository/custom_theme_repository_impl.dart';
 
 final customThemeServiceProvider = Provider<CustomThemeService>(
@@ -31,7 +32,7 @@ class CustomThemeService {
 
   final Ref _ref;
 
-  CustomThemeRepositoryImpl get _repository => _ref.read(customThemeRepositoryProvider);
+  CustomThemeRepository get _repository => _ref.read(customThemeRepositoryProvider);
 
   Future<void> save(CustomThemePack pack) async {
     final effective = pack.uuid.isEmpty ? pack.copyWith(uuid: const Uuid().v4()) : pack;

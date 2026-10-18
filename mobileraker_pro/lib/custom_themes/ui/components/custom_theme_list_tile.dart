@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import '../../data/model/custom_theme_pack.dart';
+import 'custom_theme_color_swatch.dart';
 
 class CustomThemeListTile extends StatelessWidget {
   const CustomThemeListTile({
@@ -22,7 +23,7 @@ class CustomThemeListTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(backgroundColor: Color(pack.lightConfig.primaryColor)),
+      leading: CustomThemeColorSwatch(pack: pack),
       title: Text(pack.name),
       onTap: onEdit,
       trailing: IconButton(

@@ -18,10 +18,8 @@ import 'gcode_parser_worker.dart';
 import 'gcode_structure_codec.dart';
 
 /// Erro de preparação do preview de G-code.
-class GCodePreviewException implements Exception {
-  const GCodePreviewException(this.message);
-
-  final String message;
+class GCodePreviewException extends GCodeException {
+  const GCodePreviewException(super.message);
 
   @override
   String toString() => message;

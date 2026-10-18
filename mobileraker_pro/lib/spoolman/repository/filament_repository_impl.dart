@@ -7,9 +7,11 @@ import '../dto/create_filament.dart';
 import '../dto/get_filament.dart';
 import '../dto/update_filament.dart';
 import 'filament_repository.dart';
+import 'spoolman_proxy_repository_impl.dart';
 
 /// Implementação via proxy JSON-RPC do Moonraker.
-class FilamentRepositoryImpl extends FilamentRepository {
+class FilamentRepositoryImpl extends SpoolmanProxyRepositoryImpl<GetFilament>
+    implements FilamentRepository {
   FilamentRepositoryImpl(super.jsonRpcClient, {required super.useV2Response});
 
   @override

@@ -3,14 +3,16 @@
  * All rights reserved.
  */
 
+import 'package:common/exceptions/mobileraker_exception.dart';
+
 import '../dto/create_spool.dart';
 import '../dto/get_spool.dart';
 import '../dto/update_spool.dart';
 import 'spool_repository.dart';
-import 'spoolman_proxy_repository.dart';
+import 'spoolman_proxy_repository_impl.dart';
 
 /// Implementação via proxy JSON-RPC do Moonraker.
-class SpoolRepositoryImpl extends SpoolRepository {
+class SpoolRepositoryImpl extends SpoolmanProxyRepositoryImpl<GetSpool> implements SpoolRepository {
   SpoolRepositoryImpl(super.jsonRpcClient, {required super.useV2Response});
 
   @override
@@ -51,6 +53,6 @@ class SpoolRepositoryImpl extends SpoolRepository {
     // Alguns servidores respondem vazio após consumir; relê o carretel.
     final reread = await read(id);
     if (reread != null) return reread;
-    throw const MoonrakerSpoolmanProxyException('Could not read spool after consuming filament');
+    throw MoonrakerSpoolmanProxyException(-1, 'Could not read spool after consuming filament');
   }
 }

@@ -7,6 +7,11 @@ import '../../misc/json_util.dart';
 import 'spoolman_entity_type_enum.dart';
 import 'spoolman_extra_type_enum.dart';
 
+/// Prefixo usado nos nomes dos campos do formulário (`FormBuilder`) dos
+/// campos extras do Spoolman — permite reconstruir o mapa `extra` da
+/// entidade a partir dos dados do formulário ([ExtraFieldsFormExtension]).
+const String spoolmanExtraFieldPrefix = 'extra_';
+
 /// Definição de um campo extra configurado no servidor Spoolman.
 ///
 /// Chaves (snake_case) extraídas do APK oficial: `key`, `name`, `entity_type`,
@@ -47,6 +52,9 @@ class GetExtraField {
   final List<String>? choices;
   final String? unit;
   final int? order;
+
+  /// Nome deste campo no formulário (`FormBuilder`) do app.
+  String get formFieldName => '$spoolmanExtraFieldPrefix$key';
 
   static SpoolmanEntityType? _entityTypeFrom(dynamic raw) {
     return switch (raw?.toString()) {

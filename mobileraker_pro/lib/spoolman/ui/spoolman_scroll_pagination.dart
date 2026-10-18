@@ -4,6 +4,7 @@
  */
 
 import 'package:common/data/dto/pagination_result.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -13,13 +14,15 @@ import '../dto/get_vendor.dart';
 import '../dto/spoolman_dto_mixin.dart';
 import '../dto/spoolman_filter.dart';
 import '../service/spoolman_service.dart';
+import 'filament_list_entry.dart';
+import 'spool_list_entry.dart';
+import 'spool_list_entry_shimmer.dart';
+import 'vendor_list_entry.dart';
+import 'vendor_list_entry_shimmer.dart';
 
 enum SpoolmanListType { spools, filaments, vendors }
 
-/// Lista paginada do Spoolman.
-///
-/// Stub local: renderiza os itens do store em memória do
-/// [SpoolmanService] (criados via formulários durante a sessão).
+/// Lista paginada do Spoolman (carretéis, filamentos ou fabricantes).
 class SpoolmanScrollPagination extends ConsumerWidget {
   const SpoolmanScrollPagination({
     super.key,
@@ -51,42 +54,74 @@ class SpoolmanScrollPagination extends ConsumerWidget {
     return async.when(
       data: (result) {
         final items = (result as PaginationResult<dynamic>).items;
-        if (items.isEmpty) return const SpoolmanEmptyState();
+        if (items.isEmpty) return SpoolmanEmptyState(type: type);
         return ListView.builder(
           controller: scrollController,
           physics: physics,
           padding: padding ?? EdgeInsets.zero,
           itemCount: items.length,
-          itemBuilder: (context, index) => SpoolmanEntryTile(dto: items[index], onTap: onEntryTap),
+          itemBuilder: (context, index) => _buildEntry(items[index]),
         );
       },
       error: (error, stackTrace) => SpoolmanMessageState(
         icon: Icons.error_outline,
-        message: error.toString(),
+        message: _errorMessage(error),
       ),
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => ListView.builder(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: padding ?? EdgeInsets.zero,
+        itemCount: 6,
+        itemBuilder: (context, index) => _buildShimmer(),
+      ),
     );
   }
+
+  Widget _buildEntry(Object dto) {
+    final onTap = (onEntryTap == null || dto is! SpoolmanIdentifiableDtoMixin)
+        ? null
+        : () => onEntryTap!(dto);
+    return switch (dto) {
+      GetSpool spool => SpoolListEntry(spool: spool, onTap: onTap),
+      GetFilament filament => FilamentListEntry(filament: filament, onTap: onTap),
+      GetVendor vendor => VendorListEntry(vendor: vendor, onTap: onTap),
+      _ => const SizedBox.shrink(),
+    };
+  }
+
+  Widget _buildShimmer() => switch (type) {
+        SpoolmanListType.vendors => const VendorListEntryShimmer(),
+        _ => const SpoolListEntryShimmer(),
+      };
+
+  String _errorMessage(Object error) => switch (type) {
+        SpoolmanListType.spools => 'pages.spoolman.error_loading_spools'.tr(),
+        SpoolmanListType.filaments => 'pages.spoolman.error_loading_filaments'.tr(),
+        SpoolmanListType.vendors => '$error',
+      };
 }
 
 /// Estado vazio das listagens do Spoolman.
 class SpoolmanEmptyState extends StatelessWidget {
-  const SpoolmanEmptyState({super.key});
+  const SpoolmanEmptyState({super.key, this.type = SpoolmanListType.spools});
+
+  final SpoolmanListType type;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    final message = switch (type) {
+      SpoolmanListType.spools => 'pages.spoolman.no_spools'.tr(),
+      SpoolmanListType.filaments => 'pages.spoolman.no_filaments'.tr(),
+      SpoolmanListType.vendors => 'pages.spoolman.no_vendors'.tr(),
+    };
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inventory_2_outlined, size: 48),
-            SizedBox(height: 8),
-            Text(
-              'Nenhum item do Spoolman ainda.',
-              textAlign: TextAlign.center,
-            ),
+            const Icon(Icons.inventory_2_outlined, size: 48),
+            const SizedBox(height: 8),
+            Text(message, textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -117,47 +152,4 @@ class SpoolmanMessageState extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Tile de uma entidade do Spoolman.
-class SpoolmanEntryTile extends StatelessWidget {
-  const SpoolmanEntryTile({super.key, required this.dto, this.onTap});
-
-  final Object dto;
-  final void Function(SpoolmanIdentifiableDtoMixin dto)? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final (icon, title, subtitle) = switch (dto) {
-      GetSpool spool => (
-          Icons.inventory_2_outlined,
-          'Carretel #${spool.id}',
-          filamentLabel(spool.filament),
-        ),
-      GetFilament filament => (
-          Icons.circle_outlined,
-          filamentLabel(filament) ?? 'Filamento #${filament.id}',
-          filament.vendor?.name,
-        ),
-      GetVendor vendor => (Icons.factory_outlined, vendor.name, null),
-      _ => (Icons.help_outline, dto.toString(), null),
-    };
-    final tappable = onTap != null && dto is SpoolmanIdentifiableDtoMixin;
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: subtitle == null
-          ? null
-          : Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      onTap: tappable ? () => onTap!(dto as SpoolmanIdentifiableDtoMixin) : null,
-    );
-  }
-}
-
-String? filamentLabel(GetFilament filament) {
-  final name = filament.name;
-  final material = filament.material;
-  if (name == null || name.isEmpty) return material;
-  if (material == null || material.isEmpty) return name;
-  return '$name · $material';
 }

@@ -3,10 +3,11 @@
  * All rights reserved.
  */
 
-import 'package:hive_ce/hive.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../data/model/printer_group.dart';
+import '../repository/printer_group_repository.dart';
+import '../repository/printer_group_repository_impl.dart';
 
 final printerGroupServiceProvider = Provider<PrinterGroupService>(
   (ref) => PrinterGroupService(ref),
@@ -17,32 +18,26 @@ final printerGroupsProvider = FutureProvider<List<PrinterGroup>>(
   (ref) => ref.watch(printerGroupServiceProvider).all(),
 );
 
-/// Serviço de grupos de impressoras, persistidos no box Hive
-/// `printer_groups` (aberto pelo app durante o setup).
+/// Serviço de grupos de impressoras (persistidos via [PrinterGroupRepository]).
 class PrinterGroupService {
   PrinterGroupService(this._ref);
 
   final Ref _ref;
 
-  static const String _boxName = 'printer_groups';
-
-  Box<PrinterGroup>? get _box =>
-      Hive.isBoxOpen(_boxName) ? Hive.box<PrinterGroup>(_boxName) : null;
+  PrinterGroupRepository get _repository => _ref.read(printerGroupRepositoryProvider);
 
   /// O box já é aberto pelo app no setup; nada a fazer aqui.
   Future<void> initialize() async {}
 
-  Future<List<PrinterGroup>> all() async {
-    return _box?.values.toList(growable: false) ?? const <PrinterGroup>[];
-  }
+  Future<List<PrinterGroup>> all() => _repository.findAll();
 
   Future<void> save(PrinterGroup group) async {
-    await _box?.put(group.uuid, group);
+    await _repository.save(group);
     _ref.invalidate(printerGroupsProvider);
   }
 
   Future<void> delete(PrinterGroup group) async {
-    await _box?.delete(group.uuid);
+    await _repository.delete(group);
     _ref.invalidate(printerGroupsProvider);
   }
 }
