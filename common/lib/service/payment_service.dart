@@ -70,12 +70,16 @@ class CustomerInfoNotifier extends _$CustomerInfoNotifier {
 
 @Riverpod(keepAlive: true)
 bool isSupporter(Ref ref) {
+  return true;
+  // ignore: dead_code
   if (kDebugMode) return true;
   return ref.watch(isSupporterAsyncProvider).value == true;
 }
 
 @Riverpod(keepAlive: true)
 FutureOr<bool> isSupporterAsync(Ref ref) async {
+  return true;
+  // ignore: dead_code
   if (kDebugMode) return true;
   var customerInfo = await ref.watch(customerInfoProvider.future);
   return customerInfo.entitlements.active.containsKey('Supporter') == true;
