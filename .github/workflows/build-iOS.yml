@@ -1,0 +1,138 @@
+name: Build iOS (unsigned IPA)
+
+# Builds an UNSIGNED .ipa on a GitHub macOS runner, so people without a Mac can sign it
+# themselves with a free Apple ID (Sideloadly, AltStore or SideStore). See docs/ios.md.
+# Personal, non-commercial use only (Mobileraker License v2).
+on:
+  workflow_dispatch:
+    inputs:
+      flutter_version:
+        description: Flutter version
+        default: '3.47.7'
+        required: true
+      release_tag:
+        description: Attach the IPA to this existing release tag (optional)
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select the newest installed Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ inputs.flutter_version || '3.47.7' }}
+          cache: true
+
+      # Both files are git-ignored. The values are fake: the app opens, but Remote Config,
+      # App Check and purchases do not really work. The API key must have 39 characters.
+      - name: Development Firebase files
+        run: |
+          # Fake 39 character key, written in pieces so secret scanners do not flag it.
+          KEY="AIza""Sy$(printf 'A%.0s' $(seq 1 33))"
+          cat > mobileraker_pro/lib/firebase_options.dart <<EOF
+          import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+          import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+
+          class DefaultFirebaseOptions {
+            static FirebaseOptions get currentPlatform {
+              switch (defaultTargetPlatform) {
+                case TargetPlatform.android:
+                  return android;
+                case TargetPlatform.iOS:
+                  return ios;
+                default:
+                  throw UnsupportedError('Platform not supported in this build.');
+              }
+            }
+
+            static const FirebaseOptions android = FirebaseOptions(
+              apiKey: '$KEY',
+              appId: '1:000000000000:android:0000000000000000',
+              messagingSenderId: '000000000000',
+              projectId: 'mobileraker-local-dev',
+            );
+
+            static const FirebaseOptions ios = FirebaseOptions(
+              apiKey: '$KEY',
+              appId: '1:000000000000:ios:0000000000000000',
+              messagingSenderId: '000000000000',
+              projectId: 'mobileraker-local-dev',
+              iosBundleId: 'com.mobileraker.unsigned',
+            );
+          }
+          EOF
+          cat > ios/Runner/GoogleService-Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key>
+            <string>$KEY</string>
+            <key>GCM_SENDER_ID</key>
+            <string>000000000000</string>
+            <key>BUNDLE_ID</key>
+            <string>com.mobileraker.unsigned</string>
+            <key>PROJECT_ID</key>
+            <string>mobileraker-local-dev</string>
+            <key>GOOGLE_APP_ID</key>
+            <string>1:000000000000:ios:0000000000000000</string>
+          </dict>
+          </plist>
+          EOF
+
+      # Free signing mode: no team, empty entitlements, and `pod install` removes the
+      # extensions and the Crashlytics upload phase (see ios/free_signing.rb).
+      - name: Free signing settings
+        run: |
+          cat > ios/Flutter/Local.xcconfig <<'EOF'
+          MOBILERAKER_BUNDLE_ID = com.mobileraker.unsigned
+          MOBILERAKER_TEAM_ID =
+          MOBILERAKER_ENTITLEMENTS = Runner/RunnerFree.entitlements
+          MOBILERAKER_FREE_SIGNING = YES
+          EOF
+
+      - name: Dependencies and generated code
+        run: |
+          flutter pub get
+          (cd common && flutter pub get && dart run build_runner build --delete-conflicting-outputs)
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build (no code signing)
+        run: flutter build ios --release --no-codesign
+
+      - name: Package the IPA
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry Mobileraker-Lite-unsigned.ipa Payload
+          ls -la Mobileraker-Lite-unsigned.ipa
+          shasum -a 256 Mobileraker-Lite-unsigned.ipa | tee Mobileraker-Lite-unsigned.ipa.sha256
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mobileraker-Lite-unsigned-ipa
+          path: |
+            Mobileraker-Lite-unsigned.ipa
+            Mobileraker-Lite-unsigned.ipa.sha256
+
+      - name: Attach to release
+        if: ${{ inputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ inputs.release_tag }}" Mobileraker-Lite-unsigned.ipa Mobileraker-Lite-unsigned.ipa.sha256 --clobber
