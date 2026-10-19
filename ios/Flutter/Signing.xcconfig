@@ -1,0 +1,11 @@
+// Signing settings shared by Debug/Release. The defaults below are the upstream
+// (paid developer account) values, so the regular build is unchanged.
+//
+// To build with a free Apple ID, copy Local.xcconfig.example to Local.xcconfig
+// (git-ignored) and fill in your own values. See docs/ios.md.
+MOBILERAKER_BUNDLE_ID = com.mobileraker.ios
+MOBILERAKER_TEAM_ID = Q4XB68D4T7
+MOBILERAKER_ENTITLEMENTS = Runner/Runner.entitlements
+MOBILERAKER_FREE_SIGNING = NO
+
+#include? "Local.xcconfig"

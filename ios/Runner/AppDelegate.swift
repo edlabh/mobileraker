@@ -5,13 +5,15 @@ import awesome_notifications_fcm
 
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-
     // This function register the desired plugins to be used within a notification background action
     SwiftAwesomeNotificationsPlugin.setPluginRegistrantCallback { registry in
       SwiftAwesomeNotificationsPlugin.register(

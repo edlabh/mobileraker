@@ -1,3 +1,5 @@
+require_relative 'free_signing'
+
 # Uncomment this line to define a global platform for your project
 platform :ios, '15.6'
 
@@ -127,14 +129,22 @@ update_awesome_main_target_settings('Runner', File.dirname(File.realpath(__FILE_
 ################  Awesome Notifications FCM pod mod  ###################
 awesome_fcm_pod_file = File.expand_path(File.join('plugins', 'awesome_notifications_fcm', 'ios', 'Scripts', 'AwesomeFcmPodFile'), '.symlinks')
 require awesome_fcm_pod_file
-target 'MobilerakerNotificationExtention' do
-  use_frameworks!
-  use_modular_headers!
+# The Notification Service extension needs Push/App Groups, which a free Apple ID cannot sign.
+# See free_signing.rb and docs/ios.md.
+unless MobilerakerFreeSigning.enabled?(__dir__)
+  target 'MobilerakerNotificationExtention' do
+    use_frameworks!
+    use_modular_headers!
 
-  # This line was needed to resolve an issue with AwesomeNotifications
-  pod 'GoogleUtilities'
+    # This line was needed to resolve an issue with AwesomeNotifications
+    pod 'GoogleUtilities'
 
-  install_awesome_fcm_ios_pod_target File.dirname(File.realpath(__FILE__))
+    install_awesome_fcm_ios_pod_target File.dirname(File.realpath(__FILE__))
+  end
+  update_awesome_fcm_service_target('MobilerakerNotificationExtention', File.dirname(File.realpath(__FILE__)), flutter_root)
 end
-update_awesome_fcm_service_target('MobilerakerNotificationExtention', File.dirname(File.realpath(__FILE__)), flutter_root)
+
+post_integrate do |installer|
+  MobilerakerFreeSigning.apply(File.join(__dir__, 'Runner.xcodeproj')) if MobilerakerFreeSigning.enabled?(__dir__)
+end
 ################  Awesome Notifications FCM pod mod  ###################
