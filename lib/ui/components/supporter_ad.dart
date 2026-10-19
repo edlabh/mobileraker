@@ -25,6 +25,8 @@ class _SupporterAdController extends _$SupporterAdController {
 
   @override
   bool build() {
+    return false;
+    // ignore: dead_code
     var isSupporter = ref.watch(isSupporterProvider);
 
     if (isSupporter) return false;
