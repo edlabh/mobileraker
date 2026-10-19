@@ -61,3 +61,6 @@ firebase.json
 android/app/mobileraker_local.jks
 mobileraker_pro/build/
 mobileraker-2.9.14.apk*
+
+# Per-developer iOS signing overrides (see ios/Flutter/Local.xcconfig.example)
+ios/Flutter/Local.xcconfig

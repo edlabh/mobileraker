@@ -1,0 +1,15 @@
+// Copy this file to Local.xcconfig (git-ignored) to build with a free Apple ID.
+// After changing it, run `cd ios && pod install`. See docs/ios.md.
+
+// Must be unique to you; the upstream id belongs to its author.
+MOBILERAKER_BUNDLE_ID = com.yourname.mobileraker
+
+// Your Personal Team ID (10 characters, shown by Xcode under Signing & Capabilities).
+MOBILERAKER_TEAM_ID = YOURTEAMID
+
+// A free Apple ID cannot use Push, App Groups, iCloud, etc.
+MOBILERAKER_ENTITLEMENTS = Runner/RunnerFree.entitlements
+
+// YES removes the Live Activity / Notification Service extensions and the Crashlytics
+// symbol upload phase from the Runner target (applied by `pod install`).
+MOBILERAKER_FREE_SIGNING = YES
