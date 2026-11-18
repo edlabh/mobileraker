@@ -8,16 +8,19 @@ import 'package:common/data/model/hive/machine.dart';
 import 'package:common/data/model/moonraker_db/webcam_info.dart';
 import 'package:common/network/jrpc_client_provider.dart';
 import 'package:common/network/json_rpc_client.dart';
+import 'package:common/service/demo/demo_printer.dart';
 import 'package:common/service/moonraker/klipper_system_service.dart';
 import 'package:common/service/moonraker/webcam_beacon_service.dart';
 import 'package:common/service/payment_service.dart';
 import 'package:common/ui/components/supporter_only_feature.dart';
+import 'package:common/ui/components/webcam_status_view.dart';
 import 'package:common/util/extensions/klipper_system_info_extension.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobileraker/ui/components/connection/client_type_indicator.dart';
+import 'package:mobileraker/ui/components/demo/demo_printer_widgets.dart';
 import 'package:mobileraker/ui/components/octo_widgets.dart';
 import 'package:mobileraker/ui/components/webcam/webcam_mjpeg.dart';
 import 'package:mobileraker/ui/components/webcam/webcam_webrtc.dart';
@@ -34,7 +37,7 @@ class Webcam extends HookConsumerWidget {
     this.imageBuilder,
     this.showFpsIfAvailable = false,
     this.showRemoteIndicator = true,
-    this.onHidePressed,
+    this.statusStyle = WebcamStatusStyle.compact,
   });
   final Machine machine;
   final WebcamInfo webcamInfo;
@@ -42,7 +45,7 @@ class Webcam extends HookConsumerWidget {
   final ImageBuilder? imageBuilder;
   final bool showFpsIfAvailable;
   final bool showRemoteIndicator;
-  final VoidCallback? onHidePressed;
+  final WebcamStatusStyle statusStyle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -63,7 +66,7 @@ class Webcam extends HookConsumerWidget {
       return const Text('Webcams via Obico are still Work in Progress!');
     }
 
-    if (webcamInfo.service.forSupporters && !ref.watch(isSupporterProvider)) {
+    if (webcamInfo.service.forSupporters && !ref.watch(canUseProFeaturesProvider(machine.uuid))) {
       return SupporterOnlyFeature(
         text: const Text('components.supporter_only_feature.webcam').tr(args: [webcamInfo.service.name.titleCase()]),
       );
@@ -100,7 +103,10 @@ class Webcam extends HookConsumerWidget {
         ),
     ];
 
-    // logger.wtf('webcamInfo.service: ${modifiedStack.length}');
+    // The demo printer has no camera, it shows a drawn view of the simulated bed instead.
+    if (machine.isDemo) {
+      return DemoWebcamPlaceholder(machineUUID: machine.uuid, stackContent: modifiedStack);
+    }
 
     switch (webcamInfo.service) {
       case WebcamServiceType.mjpegStreamer:
@@ -112,7 +118,7 @@ class Webcam extends HookConsumerWidget {
           imageBuilder: imageBuilder,
           showFps: showFpsIfAvailable && !isSnapmakerU1,
           stackChild: modifiedStack,
-          onHidePressed: onHidePressed,
+          statusStyle: statusStyle,
         );
 
       case WebcamServiceType.webRtcGo2Rtc:
@@ -124,7 +130,7 @@ class Webcam extends HookConsumerWidget {
           webcamInfo: webcamInfo,
           stackContent: modifiedStack,
           imageBuilder: imageBuilder,
-          onHidePressed: onHidePressed,
+          statusStyle: statusStyle,
         );
       default:
         return Text(

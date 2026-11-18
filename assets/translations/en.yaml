@@ -19,6 +19,7 @@ general:
   fetching: Fetching
   loading: Loading
   unknown: Unknown
+  grant_permission: Grant permission
   disabled: Disabled
   confirm: Confirm
   cancel: Cancel
@@ -46,6 +47,7 @@ general:
   one_time: One time
   delete: Delete
   clear: Clear
+  deselect_all: Deselect all
   unlink: Unlink
   save: Save
   apply: Apply
@@ -107,12 +109,23 @@ pages:
           Filament: {filament}
         remaining: Remaining
         print_time: Print Time
+        print_again: Print again
+        history: History
       cam_card:
         webcam: Webcam
         fullscreen: Fullscreen
+        timelapse_frame: Latest timelapse frame
         error_connecting: |-
           Error connecting to {}.
           Please check the connection settings and ensure the webcam is online.
+        error_title: Webcam unavailable
+        error_hint: Check the webcam settings and make sure it is online
+        reason_http: The webcam server responded with HTTP {}
+        reason_timeout: The webcam did not respond in time
+        reason_unreachable: The webcam could not be reached
+        hide: Hide webcam
+        show: Show webcam
+        hidden: Hidden – tap the icon to show
       temp_card:
         title: Temperature Controls
         presets_btn: Presets
@@ -186,11 +199,10 @@ pages:
         extrude_len: "@:pages.dashboard.control.extrude_card.extrude length"
         cold_extrude_error: Extruder did not reach min_extrude_temp of {}°C yet!
       macro_card:
-        title: Gcode - Macros
+        title: Macros
         no_macros: No macros are currently visible in this group
-        add_grp_hint: You can create different groups to organize your macros. Just
-          go to the printer settings and add a new group.
-        show_all_tooltip: Show all macros
+        all: All
+        more: +{} more
       pin_card:
         title_misc: Miscellaneous
         pin_btn: Pin
@@ -278,8 +290,11 @@ pages:
     error_no_components:
       title: Empty Layout!
       body: You have not added any widgets. Add at least one widget to save the layout.
+  full_cam:
+    shown_sensors: Shown temperatures
   files:
     title: Files
+    detail_pane_hint: Select a file to see its details
     empty_folder:
       title: This folder is empty
       subtitle: No files found
@@ -375,6 +390,7 @@ pages:
     gcode_tab: GCodes
     config_tab: Configs
     timelapse_tab: Timelapses
+    timelapse_last_frame: Latest timelapse frame
     element:
       one: Element
       other: Elements
@@ -384,8 +400,36 @@ pages:
         last_mod: Last Modified
         last_printed: Last Printed
         no_data: No data
+      header:
+        nozzle_chip: "{} nozzle"
+      summary:
+        est_time: Estimated time
+        done_around: Done around {}
+      history_card:
+        not_printed_title: Not printed yet
+        not_printed_body: Every run of this file on {} will appear here.
+        runs:
+          one: "{} run"
+          other: "{} runs"
+        run_status:
+          completed: Print completed
+          cancelled: Print cancelled
+          failed: Print failed
+          inProgress: Printing now
+        longer_than_estimate: "{} longer than the slicer estimate"
+        shorter_than_estimate: "{} shorter than the slicer estimate"
+        open_history: Open in Print History
       meta_card:
         title: GCode Meta Data
+        fields:
+          one: "{} field"
+          other: "{} fields"
+        slicing: Slicing
+        file: File
+        filament_changes: Filament changes
+        layer_count: Layers
+        object_height: Object height
+        chamber: Chamber
         filament: Filament
         filament_type: Type
         filament_name: Name
@@ -420,14 +464,13 @@ pages:
           1: The file was successfully added to the print queue.
           other: The files were successfully added to the print queue.
       spoolman_warnings:
+        change_spool: Change spool
         insufficient_filament_title: Insufficient filament
         insufficient_filament_body: |-
           The active spool only has {} filament left, which is not enough for this file.
-          Tap to change the active spool.
         material_mismatch_title: Material Mismatch
         material_mismatch_body: |-
           The file's material {} does not match the active spool's material {}.
-          Tap to change the active spool.
   setting:
     title: App - Settings
     general:
@@ -791,8 +834,6 @@ pages:
       title: WiFi Information Unavailable
       subtitle: |-
         To determine if Mobileraker should use the remote connection, grant location access. This allows the app to fetch the name of the current WiFi Network.
-
-        Tap to grant the permission.
     local_ssid:
       section_header: Smart Switching
       no_ssids: No WiFi name added!
@@ -904,6 +945,152 @@ pages:
     provider_error:
       title: Error fetching Console Data
       body: An error occurred while trying to fetch the console data. Please retry
+        later!
+  history:
+    title: Print History
+    search_hint: Search prints
+    stats:
+      prints: Prints
+      print_time: Print time
+      filament: Filament
+      longest_print: Longest
+    filter:
+      all: All
+      completed: Completed
+      unfinished: Unfinished
+    sort_by:
+      date: Date
+      print_duration: Print time
+      filament_used: Filament used
+    day_prints:
+      one: "{} print"
+      other: "{} prints"
+    earlier_attempts:
+      one: "{} more attempt"
+      other: "{} more attempts"
+    status:
+      completed: Completed
+      cancelled: Cancelled
+      in_progress: Printing now
+      error: Failed
+      klippy_shutdown: Klipper shut down
+      klippy_disconnect: Klipper disconnected
+      server_exit: Moonraker restarted
+      interrupted: Interrupted
+    actions:
+      print_again: Print again
+      open_file: Show file details
+      remove: Remove from history
+    file_deleted: File was deleted
+    remove_dialog:
+      title: Remove from history?
+      body: The history entry of "{}" will be removed. The file itself is not deleted.
+    remove_failed: Could not remove the entry from the history.
+    empty: No prints yet. They show up here once a print was started.
+    empty_filter: No prints match.
+    loading_more: Loading older prints…
+    load_more_failed: Could not load older prints.
+    end_reached: No older prints
+    detail_pane_hint: Select a print to see its details
+    details:
+      title: Print details
+      started: Started
+      ended: Ended
+      total_time: Total time
+      file_prints: Prints of this file
+      file_prints_completed: "{} of {} completed"
+    provider_error:
+      title: Error fetching Print History
+      body: An error occurred while trying to fetch the print history. Please verify
+        that the history component is enabled in Moonraker.
+  updates:
+    title: Update Manager
+    system_packages: System packages
+    check_for_updates: Check for updates
+    check_failed: Could not check for updates
+    update: Update
+    update_all: Update all
+    update_all_one_tap: Update all in one tap
+    update_all_hint: Supporter feature. You can still update each item below for free.
+    recover: Recover…
+    packages:
+      one: "{} system package"
+      other: "{} system packages"
+    packages_short:
+      one: "{} package"
+      other: "{} packages"
+    no_packages: No packages to update
+    show_packages: Show packages
+    commits_behind:
+      one: "{} commit behind"
+      other: "{} commits behind"
+    more_commits:
+      one: "and {} more commit"
+      other: "and {} more commits"
+    more_packages:
+      one: "and {} more"
+      other: "and {} more"
+    github_rate: "GitHub API: {} of {} checks left this hour"
+    summary:
+      available:
+        one: "{} update available"
+        other: "{} updates available"
+      up_to_date: Everything is up to date
+      up_to_date_body: All software is on its latest version.
+    sections:
+      attention: Needs attention
+      available: Updates available
+      up_to_date: Up to date
+    printing:
+      title: Paused while printing
+      body: Moonraker blocks updates and checks until the print is done. You can still
+        look at everything here.
+    busy:
+      title: Update in progress
+      body: Wait for it to finish before you start another one.
+      show_log: Show log
+    issue:
+      corrupt:
+        title: Repo is corrupt
+        body: The local repo is broken and cannot be updated. A hard recover deletes
+          it and clones it again.
+      dirty:
+        title: Local changes detected
+        body: Files of the repo were modified, so Moonraker does not update it. A soft
+          recover resets them.
+      invalid:
+        title: Updates are disabled
+        body: Moonraker found a problem with this software and does not update it.
+      error:
+        title: Last update failed
+        body: Moonraker reported an error for this software.
+    sudo:
+      title: Sudo password required
+      body: Moonraker needs the sudo password to continue.
+      enter: Enter
+    actions:
+      update: Update
+      refresh: Check for updates
+      rollback: Roll back
+      recover: Recover…
+      open_repo: Open on GitHub
+    rollback_dialog:
+      title: "Roll back {}?"
+      body: "{} goes back to {}, the version before its last update."
+    not_configured:
+      title: Update manager is not set up
+      body: Add the [update_manager] section to your moonraker.conf to manage updates
+        from here.
+    detail_pane_hint: Nothing to show
+    details:
+      installed: Installed
+      available: Available
+      rollback_version: Rollback version
+      source: Source
+      changelog: Changelog
+    provider_error:
+      title: Error fetching updates
+      body: An error occurred while trying to read the update manager. Please retry
         later!
   overview:
     title: Overview
@@ -1107,9 +1294,8 @@ pages:
       title: Microphone permission required
       subtitle: |-
         The belt tuner uses your phone's microphone to analyze the frequency of your belts.
-
-        Tap to grant the permission.
   spoolman:
+    detail_pane_hint: Select an entry to see its details
     title: Spoolman
     not_available: "Spoolman is not available for this printer. \nPlease make sure
       that Spoolman is installed and enabled on your printer."
@@ -1210,6 +1396,58 @@ pages:
       info_card: Manufacturer Info
     filament_details:
       info_card: Filament Info
+    tags:
+      title: NFC Tags
+      link: Link Tag
+      unlink: Unlink
+      empty: No tag linked yet. Link a sticker or the spool's own tag to find it by tapping your phone to it.
+      added: Linked {}
+      scan:
+        title: Scan a Tag
+        hint: Hold the tag to the back of your phone.
+        ios_hint: Hold your iPhone near the tag.
+        disabled: NFC is turned off. Turn it on in the system settings to scan tags.
+      linked: Tag linked
+      unlinked: Tag unlinked
+      error: 'Could not update the tag: {}'
+      move:
+        title: Tag already in use
+        spool: 'This tag is linked to spool #{} ({}). Move it here?'
+        filament: 'This tag is linked to the filament {}. Move it here?'
+        unknown: This tag is linked to another spool or filament. Move it here?
+        action: Move
+      unlink_confirm:
+        title: Unlink tag?
+        body: Scanning {} will no longer find this {}.
+    filters:
+      title: Filter
+      show_archived: Show archived
+      hide_archived: Hide archived
+      clear: Clear filters
+    sort_by:
+      spool_count: Spool count
+    groups:
+      group_by: Group by
+      by:
+        filament: Filament
+        location: Location
+        vendor: Manufacturer
+        material: Material
+        none: None
+      no_location: No location
+      no_vendor: No manufacturer
+      no_material: No material
+      spools:
+        one: '{} spool'
+        other: '{} spools'
+      in_use: '{} in use'
+      last_used: 'Last used {}'
+      never_used: Never used
+      no_spools: No spools
+      unused_identical:
+        one: '{} unused · {} each'
+        other: '{} unused · {} each'
+      load_more: 'Show more ({} left)'
     spool_details:
       page_title: Spool {}
       info_card: Spool Info
@@ -1253,6 +1491,11 @@ pages:
     title: Temperature Chart
     chart_y_axis: Temperature [°C]
 components:
+  machine_status:
+    connection_error: Connection failed
+    klipper_disconnected: Klipper disconnected
+    klipper_error: Klipper error
+    klipper_shutdown: Klipper shutdown
   app_version_display:
     version: 'Version:'
     installed_version: 'Installed Version:'
@@ -1295,6 +1538,19 @@ components:
   supporter_add:
     title: Like Mobileraker?
     subtitle: Tap me! To learn how you can support the development!
+  demo_printer:
+    name: Demo printer
+    try_hint: No printer at hand? Explore Mobileraker with a simulated one.
+    try_button: Try the demo printer
+    banner_title: You're using the demo printer
+    banner_body: This printer is simulated inside the app, nothing you do here reaches
+      a real printer. Pro features are unlocked so you can try them, look for the PRO
+      badge.
+    add_own: Add your printer
+    remove: Remove demo
+    pro_badge: PRO
+    pro_tooltip: Supporter feature, unlocked on the demo printer
+    webcam: Demo camera
   supporter_only_feature:
     dialog_title: Supporter Only Feature
     button: Become a Mobileraker Supporter
@@ -1315,6 +1571,10 @@ components:
     graph_page: Sorry, the Temperature-History page is only available to Supporters.
     snapshot_webcam: Sorry, notification snapshots are only available to Supporters.
     custom_themes: Create fully custom themes with your own colors and logo.
+    update_all: Updating everything in one tap is only available to Supporters. You
+      can still update each software on its own for free.
+    update_rollback: Sorry, rolling back to the previous version is only available
+      to Supporters.
   machine_deletion_warning:
     title: Machine Deletion
     subtitle: It seems like you are not a Supporter. Only supports can have more than
@@ -1418,6 +1678,15 @@ components:
   segment_form_field:
     duplicate_error: Value already present.
 dialogs:
+  sudo_password:
+    title: Sudo password
+    label: Password of the host's user
+    label_user: Password of "{}"
+    helper: Sent to Moonraker only, which keeps it until it restarts. The app does
+      not store it.
+    action: Send
+    accepted: Sudo password accepted
+    failed: Sudo request failed
   rate_my_app:
     title: Rate Mobileraker?
     message: If you like Mobileraker and want to support the development, please consider
@@ -1603,15 +1872,75 @@ dialogs:
     subtitle: Add or subtract filament from the spool. A positive value will consume filament, a negative value will add it.
     input_label: Adjust Amount
     submit_label: Adjust
-    tooltip:
-      weight: Switch to weight mode
-      length: Switch to length mode
+    mode:
+      weight: Weight
+      length: Length
+      measured: Measured
+    measured:
+      subtitle: Put the spool with its filament on a scale and enter the weight shown. Spoolman subtracts the empty spool weight and books the difference as used filament.
+      input_label: Gross weight
+      positive: Enter a weight greater than 0
+      tare: 'Empty spool: {} g ({})'
+      remaining: '≈ {} g filament left'
+      tare_source:
+        spool: from the spool
+        filament: from the filament
+        vendor: from the manufacturer
+      no_tare: No empty spool weight is set for this spool or its filament, so Spoolman can't compute the remaining filament. Add one to the spool or filament first.
+      no_initial_weight: Neither the spool nor its filament has a filament weight, so Spoolman can't compute the remaining filament. Add one to the spool or filament first.
   num_range_dialog:
     helper:
       min: Enter a value of at least {}
       range: Enter a value between {} and {}
 bottom_sheets:
+  update_log:
+    title:
+      running:
+        upgrade: "Updating {}"
+        recover: "Recovering {}"
+        rollback: "Rolling back {}"
+      finished:
+        upgrade: Update finished
+        recover: Recovery finished
+        rollback: Rollback finished
+      failed:
+        upgrade: Update failed
+        recover: Recovery failed
+        rollback: Rollback failed
+    step: "{} of {}"
+    hint: You can close this. The update keeps running on the printer.
+    waiting: Waiting for Moonraker…
+    copy: Copy log
+    copied: Log copied to the clipboard.
+  update_recover:
+    title: "Fix {}"
+    subtitle: Pick how far to go.
+    recommended: Recommended
+    soft:
+      title: Soft recover
+      body: Runs git reset. Throws away local changes and keeps the repo.
+    hard:
+      title: Hard recover
+      body: Deletes the repo and clones it again. For corrupt repos. Takes longer.
+    supporter: Recover, roll back and update all in one tap are for Supporters. Your
+      support keeps Mobileraker going.
+  macros:
+    title: Macros
+    available:
+      one: '{} macro available'
+      other: '{} macros available'
+    all: All
+    run: Run {}
+    no_results: No macro matches your search
+    recent: Recent
+    sent: Sent
   job_queue_sheet:
+    jobs:
+      one: '{} job'
+      other: '{} jobs'
+    state:
+      running: Running
+      paused: Paused
     next: Next print job
     empty: The job queue is empty. You can add jobs via the file browser.
     start_queue: Start Queue
@@ -1713,9 +2042,20 @@ bottom_sheets:
     cant_render: Rendering of the bed mesh for the printer's kinematics is not supported
       yet.
   select_spool:
+    title: Select Spool
+    available:
+      one: '{} spool'
+      other: '{} spools'
+    all: All
+    no_results: No spools match your search
+    active: Active spool
+    remaining: '{} left'
+    of_total: 'of {}'
+    set_active_error: Could not set the active spool
     header:
       spools: Spools
       qr: QR-Code
+      nfc: NFC Tag
     no_spools: No spools found. Please add a spools to Spoolman
     error: 'An error occured while trying to load spools: {}'
     qr_loading: Loading QR Scanner…
@@ -1723,8 +2063,33 @@ bottom_sheets:
     scan_again: Scan Again
     set_active: Set Active
     spool_id_not_found: 'Sorry, no spool was found with the specified ID #{}.'
+    nfc:
+      no_match: 'No spool or filament is linked to the tag {}.'
+      filament_spools: 'The tag belongs to the filament {}. Pick one of its spools:'
+      filament_no_spools: 'The tag belongs to the filament {}, which has no spools.'
   non_printing:
+    title: Printer Actions
+    long_press_hint: Long press an action to skip its confirmation.
+    job_queue:
+      description: Queue up prints to run one after another
+    fw_restart:
+      description: Restarts Klipper and its MCUs
+    host_restart:
+      title: Restart Host
+      description: Reboots the host, e.g. a Raspberry Pi
+    host_shutdown:
+      title: Shut Down Host
+      description: Powers off the host, e.g. a Raspberry Pi
     manage_service:
+      description: Start, stop or restart Klipper, Moonraker and others
+      available:
+        one: '{} service'
+        other: '{} services'
+      state:
+        active: Running
+        inactive: Stopped
+        deactivating: Stopping…
+        failed: Failed
       title: Manage Services
       no_services: No services found!
       provider_error: Error while fetching services

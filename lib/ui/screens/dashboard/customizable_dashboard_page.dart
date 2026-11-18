@@ -20,6 +20,8 @@ import 'package:common/data/model/hive/dashboard_layout.dart';
 import 'package:common/data/model/hive/dashboard_tab.dart';
 import 'package:common/data/model/hive/machine.dart';
 import 'package:common/service/app_router.dart';
+import 'package:common/service/moonraker/history_service.dart';
+import 'package:common/service/moonraker/klipper_system_service.dart';
 import 'package:common/service/moonraker/klippy_service.dart';
 import 'package:common/service/moonraker/printer_service.dart';
 import 'package:common/service/payment_service.dart';
@@ -28,6 +30,7 @@ import 'package:common/service/ui/bottom_sheet_service_interface.dart';
 import 'package:common/service/ui/dialog_service_interface.dart';
 import 'package:common/service/ui/snackbar_service_interface.dart';
 import 'package:common/ui/components/connection/printer_provider_guard.dart';
+import 'package:common/ui/components/demo_pro_badge.dart';
 import 'package:common/ui/components/nav/nav_drawer_view.dart';
 import 'package:common/ui/components/nav/nav_rail_view.dart';
 import 'package:common/ui/components/nav/nav_widget_controller.dart';
@@ -50,6 +53,7 @@ import 'package:mobileraker/service/ui/dialog_service_impl.dart';
 import 'package:mobileraker/ui/components/async_value_widget.dart';
 import 'package:mobileraker/ui/components/bottomsheet/action_bottom_sheet.dart';
 import 'package:mobileraker/ui/components/connection/machine_connection_guard.dart';
+import 'package:mobileraker/ui/components/demo/demo_printer_widgets.dart';
 import 'package:mobileraker/ui/components/dialog/text_input/text_input_dialog.dart';
 import 'package:mobileraker/ui/components/emergency_stop_button.dart';
 import 'package:mobileraker/ui/components/machine_state_indicator.dart';
@@ -81,6 +85,7 @@ const _staticWidgets = [
     animated: false,
     placeholder: true,
   ),
+  DemoPrinterBanner(key: Key('DemoPrinterBanner')),
   RemoteAnnouncements(key: Key('RemoteAnnouncements')),
   MachineDeletionWarning(key: Key('MachineDeletionWarning')),
   SupporterAd(key: Key('SupporterAd')),
@@ -134,20 +139,17 @@ class _DashboardView extends HookConsumerWidget {
     );
     final fab = activeMachine?.uuid.let((it) => _FloatingActionBtn(machineUUID: it));
 
-    if (context.isLargerThanCompact) {
-      body = NavigationRailView(leading: fab, page: body);
-    }
-
     var isEditing =
         activeMachine?.let(
           (it) => ref.watch(_dashboardPageControllerProvider(it.uuid).selectAs((d) => d.isEditing)).value == true,
         ) ==
         true;
 
-    return Scaffold(
+    return RailScaffold(
       appBar: const _AppBar(),
       body: body,
-      floatingActionButton: fab.unless(context.isLargerThanCompact)?.let((it) => _FabHider(child: it)),
+      railLeading: fab,
+      floatingActionButton: fab?.let((it) => _FabHider(child: it)),
       floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: activeMachine?.uuid
           .let((it) => _BottomNavigationBar(machineUUID: it))
@@ -236,6 +238,13 @@ class _BodyState extends ConsumerState<_Body> {
   Widget build(BuildContext context) {
     var asyncModel = ref.watch(_dashboardPageControllerProvider(machineUUID));
     var controller = ref.watch(_dashboardPageControllerProvider(machineUUID).notifier);
+
+    // The cards are not kept alive, so a card that is scrolled out of view (or whose tab is left) drops its providers.
+    // Data that has to be fetched from the printer is therefore kept alive as long as the dashboard is shown. Otherwise
+    // such a card would show its loading state and animate/jump each time it comes back into view.
+    ref.listen(klippySystemInfoProvider(machineUUID), (_, _) {}); // Tool selector of the extruder card
+    final hasHistory = ref.watch(klipperProvider(machineUUID).select((d) => d.value?.hasHistoryComponent ?? false));
+    if (hasHistory) ref.listen(jobHistoryProvider(machineUUID, null), (_, _) {}); // Print again of the status card
 
     return AsyncValueWidget(
       debugLabel: 'DashboardPageController-$machineUUID',
@@ -396,8 +405,14 @@ class _PrintingFAB extends ConsumerWidget {
       activeIcon: Icons.close,
       spacing: 5,
       renderOverlay: false,
-      direction: context.isLargerThanCompact ? SpeedDialDirection.down : SpeedDialDirection.up,
-      switchLabelPosition: context.isLargerThanCompact,
+      // SpeedDial does not use the FAB theme by itself (e.g. smaller and flat in the iPhone Duo's rail).
+      elevation: Theme.of(context).floatingActionButtonTheme.elevation ?? 6,
+      buttonSize:
+          Theme.of(context).floatingActionButtonTheme.sizeConstraints?.smallest.onlyLet((s) => !s.isEmpty) ??
+          const Size(56, 56),
+      // In the rail (top of the screen) instead of docked to the bottom bar.
+      direction: RailScaffold.showsRailOf(context) ? SpeedDialDirection.down : SpeedDialDirection.up,
+      switchLabelPosition: RailScaffold.showsRailOf(context),
       children: [
         SpeedDialChild(
           child: const Icon(Icons.cleaning_services),
@@ -503,7 +518,8 @@ class _BottomNavigationBar extends ConsumerWidget {
         ],
         activeColor: themeData.bottomNavigationBarTheme.selectedItemColor ?? colorScheme.onPrimary,
         inactiveColor: themeData.bottomNavigationBarTheme.unselectedItemColor?.withAlpha(125),
-        gapLocation: GapLocation.end,
+        // The FAB docks there, unless it is shown in the rail (foldables).
+        gapLocation: RailScaffold.showsRailOf(context) ? GapLocation.none : GapLocation.end,
         backgroundColor: themeData.bottomNavigationBarTheme.backgroundColor ?? colorScheme.primary,
         notchSmoothness: NotchSmoothness.softEdge,
         activeIndex: model.activeIndex,
@@ -561,7 +577,7 @@ class _PrinterAppBar extends ConsumerWidget {
       AsyncData(value: _Model(isEditing: true)) => AppBar(
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: controller.cancelEditMode),
         centerTitle: false,
-        title: const Text('pages.customizing_dashboard.title').tr(),
+        title: TitleWithDemoProBadge(title: const Text('pages.customizing_dashboard.title').tr()),
         actions: [
           IconButton(onPressed: controller.saveCurrentLayout, icon: Icon(Icons.save), tooltip: tr('general.save')),
           IconButton(
@@ -576,7 +592,8 @@ class _PrinterAppBar extends ConsumerWidget {
       ),
       _ => SwitchPrinterAppBar(
         title: tr('pages.dashboard.title'),
-        actions: <Widget>[MachineStateIndicator(machine), const EmergencyStopButton()],
+        status: MachineStatusLabel(machine),
+        actions: <Widget>[const EmergencyStopButton()],
       ),
     };
   }
@@ -695,7 +712,7 @@ class _DashboardPageController extends _$DashboardPageController {
   }
 
   void saveCurrentLayout() {
-    var isSupporter = ref.read(isSupporterProvider);
+    var isSupporter = ref.read(canUseProFeaturesProvider(machineUUID));
 
     if (!isSupporter) {
       _snackbarService.show(
@@ -716,7 +733,7 @@ class _DashboardPageController extends _$DashboardPageController {
   }
 
   void resetCurrentLayout() {
-    var isSupporter = ref.read(isSupporterProvider);
+    var isSupporter = ref.read(canUseProFeaturesProvider(machineUUID));
 
     if (!isSupporter) {
       _snackbarService.show(
@@ -753,7 +770,7 @@ class _DashboardPageController extends _$DashboardPageController {
   }
 
   void renameCurrentLayout() async {
-    var isSupporter = ref.read(isSupporterProvider);
+    var isSupporter = ref.read(canUseProFeaturesProvider(machineUUID));
 
     if (!isSupporter) {
       _snackbarService.show(
@@ -801,7 +818,7 @@ class _DashboardPageController extends _$DashboardPageController {
   }
 
   void exportCurrentLayout(Rect origin) {
-    var isSupporter = ref.read(isSupporterProvider);
+    var isSupporter = ref.read(canUseProFeaturesProvider(machineUUID));
 
     if (!isSupporter) {
       _snackbarService.show(

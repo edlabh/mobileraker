@@ -8,6 +8,8 @@ import 'package:common/network/jrpc_client_provider.dart';
 import 'package:common/service/app_router.dart';
 import 'package:common/service/moonraker/printer_service.dart';
 import 'package:common/service/moonraker/webcam_service.dart';
+import 'package:common/service/selected_machine_service.dart';
+import 'package:common/service/setting_service.dart';
 import 'package:common/util/extensions/async_ext.dart';
 import 'package:common/util/extensions/logging_extension.dart';
 import 'package:common/util/logger.dart';
@@ -28,6 +30,8 @@ class MachineCamBaseCard extends ConsumerWidget {
 
   final Widget body;
 
+  /// Called when the card is tapped. Defaults to opening the machine's dashboard, which works in every connection
+  /// and Klipper state (e.g. to turn on a powered off printer via its power devices).
   final GestureTapCallback? onTap;
 
   @override
@@ -38,7 +42,7 @@ class MachineCamBaseCard extends ConsumerWidget {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
+        onTap: onTap ?? () => _openDashboard(ref),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -51,6 +55,11 @@ class MachineCamBaseCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _openDashboard(WidgetRef ref) {
+    ref.read(selectedMachineServiceProvider).selectMachine(machine);
+    ref.read(goRouterProvider).pushNamed(AppRoute.dashBoard.name);
   }
 }
 
@@ -90,7 +99,8 @@ class _Cam extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     //TODO: Decide if I want a loading animation here or if it is fine to load it after the JRPC State widget
     final previewCam = ref.watch(activeWebcamInfoForMachineProvider(machine.uuid)).value;
-    if (previewCam == null) return const SizedBox.shrink();
+    final hidden = ref.watch(boolSettingProvider(CompositeKey.keyWithString(UiKeys.hideWebcam, machine.uuid)));
+    if (previewCam == null || hidden) return const SizedBox.shrink();
 
     return Align(
       alignment: Alignment.bottomCenter,

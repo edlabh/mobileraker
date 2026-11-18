@@ -26,6 +26,7 @@ import 'package:common/service/ui/bottom_sheet_service_interface.dart';
 import 'package:common/service/ui/dialog_service_interface.dart';
 import 'package:common/service/ui/snackbar_service_interface.dart';
 import 'package:common/service/ui/theme_service.dart';
+import 'package:common/ui/components/nav/nav_rail_view.dart';
 import 'package:common/ui/components/responsive_limit.dart';
 import 'package:common/ui/components/simple_error_widget.dart';
 import 'package:common/ui/components/warning_card.dart';
@@ -91,7 +92,7 @@ class PrinterEditPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isSaving = ref.watch(_isSaving).isPending;
-    return Scaffold(
+    return RailScaffold(
       appBar: AppBar(
         title: const Text(
           'pages.printer_edit.title',
@@ -129,10 +130,10 @@ class PrinterEditPage extends HookConsumerWidget {
   Future<void> onMoreActionsTap(MutationTarget scope, Machine machine) async {
     talker.info('More actions tapped, showing bottom sheet');
 
-    var machineName = _formKey.currentState?.fields[_FormFields.printerName.name]?.value as String?;
-    if (machineName?.isNotEmpty != true) machineName = machine.name;
-    var machineAdd = _formKey.currentState?.fields[_FormFields.printerAddress.name]?.value as String?;
-    if (machineAdd?.isNotEmpty != true) machineAdd = machine.httpUri.toString();
+    final formName = _formKey.currentState?.fields[_FormFields.printerName.name]?.value as String?;
+    final machineName = formName?.isNotEmpty == true ? formName! : machine.name;
+    final formAdd = _formKey.currentState?.fields[_FormFields.printerAddress.name]?.value as String?;
+    final machineAdd = formAdd?.isNotEmpty == true ? formAdd! : machine.httpUri.toString();
 
     await BottomSheetService.showSheetMutation.run(scope, (tsx) async {
       final BottomSheetService sheetService = tsx.get(bottomSheetServiceProvider);
@@ -150,8 +151,8 @@ class PrinterEditPage extends HookConsumerWidget {
         BottomSheetConfig(
           type: SheetType.actions,
           data: ActionBottomSheetArgs(
-            title: Text(machineName!),
-            subtitle: Text(machineAdd!, maxLines: 1, overflow: TextOverflow.ellipsis),
+            title: Text(machineName),
+            subtitle: Text(machineAdd, maxLines: 1, overflow: TextOverflow.ellipsis),
             trailing: MachineStateIndicator(machine),
             actions: [
               if (remoteSettings.hasValue) MachineAction.import,
@@ -426,6 +427,7 @@ class _Body extends ConsumerWidget {
                       title: const Text('pages.printer_edit.wifi_access_warning.title').tr(),
                       subtitle: const Text('pages.printer_edit.wifi_access_warning.subtitle').tr(),
                       leadingIcon: const Icon(Icons.wifi_off_outlined),
+                      actionLabel: const Text('general.grant_permission').tr(),
                       onTap: () async {
                         var lastStatus = status;
                         if (lastStatus?.isGranted == true) return;

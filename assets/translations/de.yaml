@@ -46,6 +46,7 @@ general:
   one_time: Einmalig
   delete: Löschen
   clear: Zurücksetzen
+  deselect_all: Alle abwählen
   unlink: Unlink
   save: Speichern
   apply: Anwenden
@@ -109,9 +110,18 @@ pages:
       cam_card:
         webcam: Webcam
         fullscreen: Vollbild
+        timelapse_frame: Letztes Zeitraffer-Bild
         error_connecting: |-
           Fehler beim Verbinden mit {}.
           Bitte überprüfen Sie die Verbindungseinstellungen und stellen Sie sicher, dass die Webcam online ist.
+        error_title: Webcam nicht verfügbar
+        error_hint: Bitte prüfen Sie die Webcam-Einstellungen und ob die Webcam online ist
+        reason_http: Der Webcam-Server antwortete mit HTTP {}
+        reason_timeout: Die Webcam hat nicht rechtzeitig geantwortet
+        reason_unreachable: Die Webcam ist nicht erreichbar
+        hide: Webcam ausblenden
+        show: Webcam einblenden
+        hidden: Ausgeblendet – zum Einblenden auf das Symbol tippen
       temp_card:
         title: Thermik
         presets_btn: Voreinstellungen
@@ -185,10 +195,10 @@ pages:
         extrude_len: "Extrudiere Länge"
         cold_extrude_error: Extruder zu kalt.  min_extrode_temp von {}°C noch nicht erreicht!
       macro_card:
-        title: Gcode - Macros
+        title: Makros
         no_macros: In dieser Gruppe sind derzeit keine Makros sichtbar
-        add_grp_hint: Sie können verschiedene Gruppen erstellen, um Ihre Makros zu verwalten. Dazu öffnen Sie die Druckereinstellungen und legen eine eigene Gruppen an.
-        show_all_tooltip: Alle Makros anzeigen
+        all: Alle
+        more: +{} weitere
       pin_card:
         title_misc: Verschiedenes
         pin_btn: Pin
@@ -273,8 +283,11 @@ pages:
     error_no_components:
       title: Leeres Layout!
       body: Du hast keine Widgets hinzugefügt. Füge mindestens ein Widget hinzu, um das Layout zu speichern.
+  full_cam:
+    shown_sensors: Angezeigte Temperaturen
   files:
     title: Dateien
+    detail_pane_hint: Wähle eine Datei aus, um ihre Details zu sehen
     empty_folder:
       title: Dieser Ordner ist leer
       subtitle: Keine Dateien gefunden
@@ -368,6 +381,7 @@ pages:
     gcode_tab: GCodes
     config_tab: Konfigs
     timelapse_tab: Zeitraffer
+    timelapse_last_frame: Letztes Zeitraffer-Bild
     element:
       one: Element
       other: Elemente
@@ -1007,6 +1021,7 @@ pages:
 
         Tippen Sie, um die Erlaubnis zu erteilen.
   spoolman:
+    detail_pane_hint: Wähle einen Eintrag aus, um seine Details zu sehen
     title: Spoolman
     not_available: "Spoolman ist für diesen Drucker nicht verfügbar.\nBitte stellen Sie sicher, dass Spoolman auf Ihrem Drucker installiert und aktiviert ist."
     learn_more: Um mehr über Spoolman zu erfahren und wie Sie ihn installieren können, besuchen Sie die
@@ -1088,7 +1103,7 @@ pages:
       used_weight: Benutztes Gewicht
       remaining_length: Verbleibende Länge
       used_length: Benutzte Länge
-      location: Standort
+      location: Lagerort
       lot_number: Chargennummer
       color: Farbe
       initial_weight: Anfangsgewicht
@@ -1104,6 +1119,35 @@ pages:
       info_card: Hersteller Details
     filament_details:
       info_card: Filament Details
+    filters:
+      title: Filter
+      show_archived: Archivierte anzeigen
+      hide_archived: Archivierte ausblenden
+      clear: Filter zurücksetzen
+    sort_by:
+      spool_count: Anzahl Spulen
+    groups:
+      group_by: Gruppieren nach
+      by:
+        filament: Filament
+        location: Lagerort
+        vendor: Hersteller
+        material: Material
+        none: Keine
+      no_location: Kein Lagerort
+      no_vendor: Kein Hersteller
+      no_material: Kein Material
+      spools:
+        one: '{} Spule'
+        other: '{} Spulen'
+      in_use: '{} in Benutzung'
+      last_used: 'Zuletzt benutzt {}'
+      never_used: Nie benutzt
+      no_spools: Keine Spulen
+      unused_identical:
+        one: '{} unbenutzt · je {}'
+        other: '{} unbenutzt · je {}'
+      load_more: 'Mehr anzeigen ({} übrig)'
     spool_details:
       page_title: Spule {}
       info_card: Spulen Details
@@ -1141,6 +1185,11 @@ pages:
     title: Temperaturverlauf
     chart_y_axis: Temperatur [°C]
 components:
+  machine_status:
+    connection_error: Verbindung fehlgeschlagen
+    klipper_disconnected: Klipper getrennt
+    klipper_error: Klipper-Fehler
+    klipper_shutdown: Klipper heruntergefahren
   app_version_display:
     version: 'Version:'
     installed_version: 'Installierte Version:'
@@ -1183,6 +1232,19 @@ components:
   supporter_add:
     title: Mögen Sie Mobileraker?
     subtitle: Tipp mich an! Um zu erfahren, wie Sie die Entwicklung unterstützen können!
+  demo_printer:
+    name: Demo-Drucker
+    try_hint: Gerade keinen Drucker zur Hand? Entdecke Mobileraker mit einem simulierten.
+    try_button: Demo-Drucker ausprobieren
+    banner_title: Du nutzt den Demo-Drucker
+    banner_body: Dieser Drucker wird in der App simuliert, nichts davon erreicht einen
+      echten Drucker. Pro-Funktionen sind freigeschaltet, damit du sie ausprobieren
+      kannst, achte auf das PRO-Abzeichen.
+    add_own: Eigenen Drucker hinzufügen
+    remove: Demo entfernen
+    pro_badge: PRO
+    pro_tooltip: Supporter-Funktion, auf dem Demo-Drucker freigeschaltet
+    webcam: Demo-Kamera
   supporter_only_feature:
     dialog_title: Funktion nur für Supporter
     button: Werde ein Mobileraker Supporter
@@ -1482,7 +1544,23 @@ dialogs:
       min: Gib einen Wert größer als {} ein
       range: Gib einen Wert zwischen {} und {} ein
 bottom_sheets:
+  macros:
+    title: Makros
+    available:
+      one: '{} Makro verfügbar'
+      other: '{} Makros verfügbar'
+    all: Alle
+    run: '{} ausführen'
+    no_results: Kein Makro passt zur Suche
+    recent: Zuletzt
+    sent: Gesendet
   job_queue_sheet:
+    jobs:
+      one: '{} Auftrag'
+      other: '{} Aufträge'
+    state:
+      running: Läuft
+      paused: Pausiert
     next: Nächster Druckauftrag
     empty: Die Job-Warteschlange ist leer. Über den Dateibrowser können Sie Aufträge hinzufügen.
     start_queue: Warteschlange starten
@@ -1565,6 +1643,14 @@ bottom_sheets:
     clear_loaded_profile: Geladenes Profil zurücksetzen
     cant_render: Das Rendering des Bettnetzes für die  Drucker-Kinematik wird noch nicht unterstützt.
   select_spool:
+    title: Spule auswählen
+    available:
+      one: '{} Spule'
+      other: '{} Spulen'
+    all: Alle
+    no_results: Keine Spulen passen zur Suche
+    active: Aktive Spule
+    set_active_error: Die aktive Spule konnte nicht gesetzt werden
     header:
       spools: Spulen
       qr: QR-Code
@@ -1576,7 +1662,28 @@ bottom_sheets:
     set_active: Aktivieren
     spool_id_not_found: 'Es konnte leider kein Spool mit der angegebenen ID #{} gefunden werden.'
   non_printing:
+    title: Druckeraktionen
+    long_press_hint: Halten Sie eine Aktion gedrückt, um die Bestätigung zu überspringen.
+    job_queue:
+      description: Drucke einreihen, die nacheinander laufen
+    fw_restart:
+      description: Startet Klipper und seine MCUs neu
+    host_restart:
+      title: Host neu starten
+      description: Startet den Host neu, z. B. einen Raspberry Pi
+    host_shutdown:
+      title: Host herunterfahren
+      description: Schaltet den Host aus, z. B. einen Raspberry Pi
     manage_service:
+      description: Klipper, Moonraker und andere starten, stoppen oder neu starten
+      available:
+        one: '{} Dienst'
+        other: '{} Dienste'
+      state:
+        active: Läuft
+        inactive: Gestoppt
+        deactivating: Wird gestoppt…
+        failed: Fehlgeschlagen
       title: Dienste verwalten
       no_services: Keine Dienste gefunden!
       provider_error: Fehler beim Laden der Dienste!

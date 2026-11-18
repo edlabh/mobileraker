@@ -19,30 +19,14 @@ struct MobilrakerLiveActivityBundle: WidgetBundle {
 }
 
 
-struct LiveActivitiesAppAttributes: ActivityAttributes, Identifiable {
-    public typealias LiveDeliveryData = ContentState // don't forget to add this line, otherwise, live activity will not display it.
-    
-    public struct ContentState: Codable, Hashable {
-        // make everything nullable to be able to retrieve initial
-        // values before notification is sent to update
-        let progress: Double?
-        let eta: Int?
-        let printState: String?
-        let file: String?
-    }
-    
-    var id = UUID()
-}
-
-let sharedDefault = UserDefaults(suiteName: "group.mobileraker.liveactivity")!
-
 struct PrintingLiveActivity: Widget {
     var body: some WidgetConfiguration {
         let liveAc = ActivityConfiguration(for: LiveActivitiesAppAttributes.self) { context in
             PrintLockScreenView(activityContext: context)
             .padding(14)
-            .activityBackgroundTint(Color.black.opacity(0.55))
-            .activitySystemActionForegroundColor(Color(UIColor.label.dark))
+            // nil renders the opaque default background, a clear tint lets the system's glass platter show through (iOS 26+)
+            .activityBackgroundTint(activityUsesSystemGlass ? Color.clear : Color.black.opacity(0.55))
+            .activitySystemActionForegroundColor(activityUsesSystemGlass ? nil : Color(UIColor.label.dark))
         } dynamicIsland: { context in
             return DynamicIsland {
                 // Expanded UI goes here.  Compose the expanded UI through
@@ -80,22 +64,32 @@ struct PrintingLiveActivity: Widget {
                     .padding(.horizontal)
                 }
             } compactLeading: {
-                if context.printerState != "complete", let eta = context.etaDate, shouldShowAsTimer(eta, delta: 1) {
-                    // Workaround because .timer is broken and takes up to much space...
-                    Text("00:00")
-                        .hidden()
-                        .overlay(alignment: .leading) {
-                            DateTimerView(date: eta)
-                        }
-                } else {
+                IslandWidthAdaptiveView {
+                    if context.printerState != "complete", let eta = context.etaDate, shouldShowAsTimer(eta, delta: 1) {
+                        // Workaround because .timer is broken and takes up to much space...
+                        Text("00:00")
+                            .hidden()
+                            .overlay(alignment: .leading) {
+                                DateTimerView(date: eta)
+                            }
+                    } else {
+                        Image("mr_logo")
+                            .resizable()
+                            .scaledToFit()
+                    }
+                } limited: {
                     Image("mr_logo")
                         .resizable()
                         .scaledToFit()
                 }
             } compactTrailing: {
-                PrintStatusIndicatorView(activityContext: context, widthHeight: 15, progressLineWidth: 2.5)
-                    .scaledToFit()
-                    .padding(.horizontal, 2.0)
+                IslandWidthAdaptiveView {
+                    PrintStatusIndicatorView(activityContext: context, widthHeight: 15, progressLineWidth: 2.5)
+                        .scaledToFit()
+                        .padding(.horizontal, 2.0)
+                } limited: {
+                    PrintStatusIndicatorView(activityContext: context, widthHeight: 15, progressLineWidth: 2.5)
+                }
             } minimal: {
                 PrintStatusIndicatorView(activityContext: context, widthHeight: 15, progressLineWidth: 2.5)
                     .scaledToFit()
@@ -113,29 +107,49 @@ struct PrintingLiveActivity: Widget {
     }
 }
 
-extension LiveActivitiesAppAttributes {
-    func prefixedKey(key: String) -> String {
-        return "\(id)_\(key)"
+/// iOS 27+: in landscape the compact Dynamic Island is limited in width. The [limited] content is centered there,
+/// text heavy content should be replaced by icons. Portrait and older versions always use [regular].
+struct IslandWidthAdaptiveView<Regular: View, Limited: View>: View {
+    @ViewBuilder let regular: () -> Regular
+    @ViewBuilder let limited: () -> Limited
+
+    var body: some View {
+        if #available(iOS 27.0, *) {
+            LimitedWidthAwareView(regular: regular, limited: limited)
+        } else {
+            regular()
+        }
     }
-    
+}
+
+@available(iOS 27.0, *)
+private struct LimitedWidthAwareView<Regular: View, Limited: View>: View {
+    @Environment(\.isDynamicIslandLimitedInWidth) private var isDynamicIslandLimitedInWidth
+
+    let regular: () -> Regular
+    let limited: () -> Limited
+
+    var body: some View {
+        if isDynamicIslandLimitedInWidth {
+            limited()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+            regular()
+        }
+    }
+}
+
+extension LiveActivitiesAppAttributes {
     static var previewAttributes: LiveActivitiesAppAttributes {
-        let attributes = LiveActivitiesAppAttributes()
-        
-        // Setup mock data in UserDefaults
-        let defaults = UserDefaults(suiteName: "group.mobileraker.liveactivity")!
-        defaults.set("Prusa MK3S+", forKey: attributes.prefixedKey(key: "machine_name"))
-        defaults.set("Printing", forKey: attributes.prefixedKey(key: "printing_label"))
-        defaults.set("Complete", forKey: attributes.prefixedKey(key: "complete_label"))
-        defaults.set("Paused", forKey: attributes.prefixedKey(key: "paused_label"))
-        defaults.set("Error", forKey: attributes.prefixedKey(key: "error_label"))
-        defaults.set("Time Remaining", forKey: attributes.prefixedKey(key: "remaining_label"))
-        defaults.set("ETA", forKey: attributes.prefixedKey(key: "eta_label"))
-        defaults.set("Time Elapsed", forKey: attributes.prefixedKey(key: "elapsed_label"))
-        defaults.set(0xFF0FF0FF, forKey: attributes.prefixedKey(key: "primary_color_light"))
-        defaults.set(0xFFFF0000, forKey: attributes.prefixedKey(key: "primary_color_dark"))
-        defaults.set(Int(Date().timeIntervalSince1970), forKey: attributes.prefixedKey(key: "printStartTime"))
-        
-        return attributes
+        LiveActivitiesAppAttributes(
+            machineUUID: "preview",
+            machineName: "Prusa MK3S+",
+            colorLight: 0xFF0FF0FF,
+            colorDark: 0xFFFF0000,
+            etaLabel: "ETA",
+            remainingLabel: "Time Remaining",
+            stateLabels: ["printing": "Printing", "complete": "Complete", "paused": "Paused", "error": "Error"]
+        )
     }
 }
 
@@ -156,6 +170,23 @@ extension LiveActivitiesAppAttributes.ContentState {
             eta: Int(Date().addingTimeInterval(3600).timeIntervalSince1970),
             printState: "printing",
             file: "benchy.gcode"
+        )
+    }
+    
+    /// Stores the preview asset where the app would store the downloaded thumbnail
+    static var printingWithThumbnail: Self {
+        let file = "Star-Destroyer_Secondary_Engine.gcode"
+        if let png = UIImage(named: "preview_thumbnail")?.pngData(),
+           let directory = LiveActivityThumbnail.directory(machineUUID: "preview"),
+           let url = LiveActivityThumbnail.url(machineUUID: "preview", fileName: file) {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try? png.write(to: url, options: .atomic)
+        }
+        return .init(
+            progress: 0.62,
+            eta: Int(Date().addingTimeInterval(3600*2).timeIntervalSince1970),
+            printState: "printing",
+            file: file
         )
     }
     
@@ -216,6 +247,7 @@ extension LiveActivitiesAppAttributes.ContentState {
 } contentStates: {
     LiveActivitiesAppAttributes.ContentState.missingEta
     LiveActivitiesAppAttributes.ContentState.printingShortEta
+    LiveActivitiesAppAttributes.ContentState.printingWithThumbnail
     LiveActivitiesAppAttributes.ContentState.printingLongEta
     LiveActivitiesAppAttributes.ContentState.printingNextDayEta
     LiveActivitiesAppAttributes.ContentState.paused

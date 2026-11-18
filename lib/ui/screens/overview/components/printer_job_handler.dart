@@ -78,7 +78,6 @@ class _Body extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final printState = ref.watch(_printerJobHandlerControllerProvider(machine).selectRequireValue((d) => d.printState));
-    final controller = ref.watch(_printerJobHandlerControllerProvider(machine).notifier);
 
     final body = switch (printState) {
       PrintState.complete || PrintState.cancelled => _JobCompleteCancelledBody(machine: machine),
@@ -87,7 +86,7 @@ class _Body extends ConsumerWidget {
       PrintState.standby => _JobStandbyBody(machine: machine),
     };
 
-    return MachineCamBaseCard(machine: machine, body: body, onTap: controller.openMachineDashboard);
+    return MachineCamBaseCard(machine: machine, body: body);
   }
 }
 
@@ -156,7 +155,7 @@ class _JobCompleteCancelledBody extends ConsumerWidget {
                   ],
                 )
               : null,
-          trailing: lastJob != null
+          trailing: lastJob?.endTime != null
               ? Row(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -168,7 +167,7 @@ class _JobCompleteCancelledBody extends ConsumerWidget {
                     ),
                     Gap(4),
                     Text(
-                      dateFormat(lastJob.endTime),
+                      dateFormat(lastJob!.endTime!),
                       style: themeData.textTheme.bodySmall,
                     ),
                   ],
@@ -281,7 +280,7 @@ class _JobStandbyBody extends ConsumerWidget {
             if (!hasWebcam) PrintStateChip(printState: PrintState.standby),
           ],
         ),
-        if (lastJob?.endTime != null) Text(lastActivity(lastJob!.endTime), style: themeData.textTheme.bodySmall),
+        if (lastJob?.endTime != null) Text(lastActivity(lastJob!.endTime!), style: themeData.textTheme.bodySmall),
         _Actions(machine: machine),
       ],
     );

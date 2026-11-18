@@ -25,12 +25,12 @@ import 'package:common/service/ui/snackbar_service_interface.dart';
 // import 'package:common/ui/components/ad_banner.dart';
 import 'package:common/ui/components/nav/nav_drawer_view.dart';
 import 'package:common/ui/components/nav/nav_rail_view.dart';
-import 'package:common/util/extensions/build_context_extension.dart';
 import 'package:common/util/extensions/date_time_extension.dart';
 import 'package:common/util/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:gap/gap.dart';
@@ -38,7 +38,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:iabtcf_consent_info/iabtcf_consent_info.dart';
-import 'package:live_activities/live_activities.dart';
+import 'package:collection/collection.dart';
+import 'package:common/service/live_activity/live_activity_api.pigeon.dart';
 import 'package:mobileraker/service/ui/bottom_sheet_service_impl.dart';
 import 'package:mobileraker/ui/components/bottomsheet/action_bottom_sheet.dart';
 import 'package:mobileraker/ui/components/bottomsheet/selection_bottom_sheet.dart';
@@ -87,7 +88,6 @@ enum _Actions with BottomSheetAction {
 class DevPage extends HookConsumerWidget {
   DevPage({super.key});
 
-  String? _bla;
 
   void exportAPpData(WidgetRef ref) async {
     var machineRepository = ref.read(machineRepositoryProvider);
@@ -309,11 +309,7 @@ class DevPage extends HookConsumerWidget {
       ],
     );
 
-    if (context.isLargerThanCompact) {
-      body = NavigationRailView(page: body);
-    }
-
-    return Scaffold(
+    return RailScaffold(
       appBar: AppBar(title: const Text('Dev')),
       drawer: const NavigationDrawerWidget(),
       body: body,
@@ -427,95 +423,59 @@ class DevPage extends HookConsumerWidget {
     return Package(r'$rc_monthly', PackageType.monthly, storeProduct, poC);
   }
 
-  stateActivity() async {
-    final liveActivitiesPlugin = LiveActivities();
-    talker.info('#1');
-    await liveActivitiesPlugin.init(appGroupId: 'group.mobileraker.liveactivity');
-    talker.info('#2');
-    var activityState = await liveActivitiesPlugin.getActivityState('123123');
-    talker.info('Got state message: $activityState');
-  }
-
   v2Activity(WidgetRef ref) async {
     ref.read(v2LiveActivityProvider).initialize();
   }
 
   final customID = "338e8845-0cc9-42fa-810f-b09bba7469cc";
 
+  LiveActivityAttributesMessage _devActivityAttributes(Color colorLight, Color colorDark) {
+    return LiveActivityAttributesMessage(
+      machineUUID: customID,
+      machineName: 'Voronator',
+      colorLight: colorLight.toARGB32(),
+      colorDark: colorDark.toARGB32(),
+      etaLabel: tr('pages.dashboard.general.print_card.eta'),
+      remainingLabel: tr('pages.dashboard.general.print_card.remaining'),
+      stateLabels: {for (var state in PrintState.values) state.name: state.displayName},
+    );
+  }
+
   startLiveActivity(WidgetRef ref) async {
-    // ref.read(v2LiveActivityProvider).disableClearing();
-    var liveActivities = ref.read(liveActivityProvider);
+    var liveActivities = ref.read(liveActivityHostApiProvider);
 
-    // _liveActivitiesPlugin.activityUpdateStream.listen((event) {
-    //   logger.wtf('xxxLiveActivityUpdate: $event');
-    // });
+    // Sample thumbnail, normally the service downloads the one of the printed file
+    final sample = await rootBundle.load('assets/images/voron_design.png');
+    await liveActivities.setThumbnail(customID, 'Benchy.gcode', sample.buffer.asUint8List());
 
-    Map<String, dynamic> data = {
-      'progress': 0.2,
-      'state': 'printing',
-      'file': 'Benchy.gcode' ?? 'Unknown',
-      'eta': DateTime.now().add(const Duration(seconds: 60 * 200)).secondsSinceEpoch ?? -1,
-
-      // Not sure yet if I want to use this
-      'printStartTime': DateTime.now().secondsSinceEpoch ?? -1,
-
-      // Labels
-      'primary_color_dark': Colors.yellow.value,
-      'primary_color_light': Colors.pinkAccent.value,
-      'machine_name': 'Voronator',
-      'eta_label': tr('pages.dashboard.general.print_card.eta'),
-      'elapsed_label': tr('pages.dashboard.general.print_card.elapsed'),
-      'remaining_label': tr('pages.dashboard.general.print_card.remaining'),
-      for (var state in PrintState.values) '${state.name}_label': state.displayName,
-    };
-
-    var activityId = await liveActivities.createOrUpdateActivity(
-      "ff8e8845-0cc9-42fa-810f-b09bba7469ff",
-      data,
-      removeWhenAppIsKilled: true,
+    var activityId = await liveActivities.createOrUpdate(
+      _devActivityAttributes(Colors.pinkAccent, Colors.yellow),
+      LiveActivityContentMessage(
+        progress: 0.2,
+        printState: 'printing',
+        file: 'Benchy.gcode',
+        eta: DateTime.now().add(const Duration(seconds: 60 * 200)).secondsSinceEpoch,
+      ),
     );
     talker.info('Created activity with id: $activityId');
-    _bla = activityId;
-    var pushToken = await liveActivities.getPushToken(activityId!);
-    talker.info('LiveActivity PushToken: $pushToken');
+    final activity = (await liveActivities.getActivities()).firstWhereOrNull((e) => e.activityId == activityId);
+    talker.info('LiveActivity PushToken: ${activity?.pushToken}');
   }
 
   updateLiveActivity(WidgetRef ref) async {
-    var liveActivities = ref.read(liveActivityProvider);
-    // _liveActivitiesPlugin.activityUpdateStream.listen((event) {
-    //   logger.wtf('xxxLiveActivityUpdate: $event');
-    // });
+    var liveActivities = ref.read(liveActivityHostApiProvider);
 
-    Map<String, dynamic> data = {
-      'progress': 1,
-      'state': 'printing',
-      'file':
-          'Some/more/more/more/more/long/er/Very-Long/Folder-Strct/here/now/even/miore../asd/12--222--2m-22Benchy.gcode' ??
-          'Unknown',
-      // 'file': 'Benchy.gcode' ?? 'Unknown',
-      'eta': DateTime.now().add(const Duration(seconds: 60 * 20)).secondsSinceEpoch ?? -1,
-
-      // Not sure yet if I want to use this
-      'printStartTime': DateTime.now().secondsSinceEpoch ?? -1,
-
-      // Labels
-      'primary_color_dark': Colors.lightBlueAccent.value,
-      'primary_color_light': Colors.blueGrey.value,
-      'machine_name': 'Voronator',
-      'eta_label': tr('pages.dashboard.general.print_card.eta'),
-      'elapsed_label': tr('pages.dashboard.general.print_card.elapsed'),
-      'remaining_label': tr('pages.dashboard.general.print_card.remaining'),
-      'completed_label': tr('general.completed'),
-    };
-    // if (_bla == null) return;
-    // var activityId = await liveActivities.updateActivity(
-    //   _bla!,
-    //   data,
-    // );
-
-    await liveActivities.createOrUpdateActivity(customID, data);
+    await liveActivities.createOrUpdate(
+      _devActivityAttributes(Colors.pinkAccent, Colors.yellow),
+      LiveActivityContentMessage(
+        progress: 1,
+        printState: 'printing',
+        file:
+            'Some/more/more/more/more/long/er/Very-Long/Folder-Strct/here/now/even/miore../asd/12--222--2m-22Benchy.gcode',
+        eta: DateTime.now().add(const Duration(seconds: 60 * 20)).secondsSinceEpoch,
+      ),
+    );
     talker.info('UPDATED activity with customID: $customID');
-    // talker.info('UPDATED activity with id: $_bla -> $activityId');
   }
 
   //   var test = 44.4;

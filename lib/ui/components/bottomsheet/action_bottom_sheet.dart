@@ -29,7 +29,7 @@ class ActionBottomSheet extends ConsumerWidget {
       icon: const Icon(Icons.arrow_back),
       tooltip: MaterialLocalizations
           .of(context)
-          .closeButtonTooltip,
+          .backButtonTooltip,
       onPressed: context.pop,
     ).only((ModalRoute
         .of(context)
@@ -100,6 +100,7 @@ class _Entry extends StatelessWidget {
           horizontalTitleGap: 24,
           // horizontalTitleGap: 8,
           title: Text(action.labelTranslationKey).tr(),
+          subtitle: action.description?.let((it) => Text(it, maxLines: 1, overflow: TextOverflow.ellipsis)),
           minLeadingWidth: 42,
           shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.horizontal(left: Radius.circular(44)),
