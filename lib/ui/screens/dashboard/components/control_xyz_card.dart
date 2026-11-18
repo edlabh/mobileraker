@@ -63,6 +63,8 @@ class ControlXYZCard extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Kept alive on purpose: mounting this card is expensive (~15 ms in debug) and caused a dropped frame every time
+    // it scrolled back into view. Off-screen updates are cheap since its selects are narrow.
     useAutomaticKeepAlive();
     talker.info('Rebuilding ControlXYZCard.');
 
@@ -277,12 +279,21 @@ class _CardBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _XYMotionWidget(machineUUID: machineUUID),
-            _ZMotionWidget(machineUUID: machineUUID),
-          ],
+        // Scaled down on narrow phones, the fixed size buttons would overflow otherwise. The min width keeps them spread.
+        LayoutBuilder(
+          builder: (context, constraints) => FittedBox(
+            fit: BoxFit.scaleDown,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _XYMotionWidget(machineUUID: machineUUID),
+                  _ZMotionWidget(machineUUID: machineUUID),
+                ],
+              ),
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
@@ -581,10 +592,18 @@ class _ControlXYZCardController extends _$ControlXYZCardController {
         initialIndex.clamp(0, machineSettings.moveSteps.length - 1);
 
     var supportsForceMove = printer.configFile.hasForceMove == true && printer.configFile.enableForceMove == true;
+
+    // Keep the previous list instance if the actions did not change, so selects on it stay stable (List == is identity)
+    final previousActions = state.value?.directActions;
+    final quickActions = _quickActions(printer.configFile);
+    final directActions = previousActions != null && const ListEquality<_QuickAction>().equals(previousActions, quickActions)
+        ? previousActions
+        : quickActions;
+
     return _Model(
       showCard: printer.print.state != PrintState.printing && printer.configFile.configPrinter?.kinematics != 'none',
       klippyCanReceiveCommands: klippy.klippyCanReceiveCommands,
-      directActions: _quickActions(printer.configFile),
+      directActions: directActions,
       steps: machineSettings.moveSteps,
       selected: min(max(0, idx), machineSettings.moveSteps.length - 1),
       homedAxis: printer.toolhead.homedAxes,
@@ -663,6 +682,8 @@ class _ControlXYZCardController extends _$ControlXYZCardController {
     return _printerService.homePrintHead(axis);
   }
 
+  Future<void> onHomeAllBtn() => onHomeAxisBtn({PrinterAxis.X, PrinterAxis.Y, PrinterAxis.Z});
+
   Future<void> onQuadGantry() => _printerService.quadGantryLevel();
 
   Future<void> onBedMesh() => _printerService.bedMeshLevel();
@@ -734,9 +755,8 @@ class _ControlXYZCardController extends _$ControlXYZCardController {
         title: tr('pages.dashboard.general.move_card.home_all_btn'),
         description: tr('pages.dashboard.general.move_card.home_all_tooltip'),
         icon: Icons.home,
-        callback: () => onHomeAxisBtn(
-          {PrinterAxis.X, PrinterAxis.Y, PrinterAxis.Z},
-        ),
+        // Tear-off (not a closure) so the action stays == across rebuilds
+        callback: onHomeAllBtn,
       ),
       if (configFile.hasQuadGantry == true)
         _QuickAction(

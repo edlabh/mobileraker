@@ -41,11 +41,7 @@ class SettingPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     Widget body = const _Body();
 
-    if (context.isLargerThanCompact) {
-      body = NavigationRailView(page: body);
-    }
-
-    return Scaffold(
+    return RailScaffold(
       appBar: AppBar(title: const Text('pages.setting.title').tr()),
       body: body,
       drawer: const NavigationDrawerWidget(),
@@ -219,14 +215,6 @@ class _UiSection extends ConsumerWidget {
           subtitle: const Text('pages.setting.general.always_baby_hint').tr(),
           onChanged: (b) => settingService.writeBool(AppSettingKeys.alwaysShowBabyStepping, b ?? false),
           initialValue: ref.read(boolSettingProvider(AppSettingKeys.alwaysShowBabyStepping)),
-          decoration: const InputDecoration(border: InputBorder.none, isCollapsed: true),
-        ),
-        FormBuilderSwitch(
-          name: 'sliders_grouping',
-          title: const Text('pages.setting.general.sliders_grouping').tr(),
-          subtitle: const Text('pages.setting.general.sliders_grouping_hint').tr(),
-          onChanged: (b) => settingService.writeBool(AppSettingKeys.groupSliders, b ?? false),
-          initialValue: ref.read(boolSettingProvider(AppSettingKeys.groupSliders, true)),
           decoration: const InputDecoration(border: InputBorder.none, isCollapsed: true),
         ),
         FormBuilderSwitch(

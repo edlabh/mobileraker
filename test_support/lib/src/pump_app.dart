@@ -1,0 +1,161 @@
+/*
+ * Copyright (c) 2026. Patrick Schmidt.
+ * All rights reserved.
+ */
+
+import 'package:common/service/app_router.dart';
+import 'package:common/ui/app_breakpoints.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:hooks_riverpod/misc.dart' show Override;
+import 'package:responsive_framework/responsive_framework.dart';
+
+import 'test_device.dart';
+import 'test_translations.dart';
+
+const _english = Locale('en');
+
+final _defaultLight = ThemeData(useMaterial3: true);
+final _defaultDark = ThemeData(useMaterial3: true, brightness: Brightness.dark);
+
+TransitionBuilder? _directionBuilder(TextDirection? textDirection) =>
+    textDirection == null ? null : (context, child) => Directionality(textDirection: textDirection, child: child!);
+
+extension PumpApp on WidgetTester {
+  /// Pumps [widget] the way the app hosts its pages: a [ProviderScope] with [overrides], easy_localization with the
+  /// real translations, the app's responsive breakpoints and a [MaterialApp].
+  ///
+  /// - [device] sets the window size, padding and display features (default: a phone in portrait).
+  /// - [theme]/[darkTheme]/[themeMode] default to a plain Material 3 theme. App tests can pass the app's theme.
+  /// - [locale] picks the translations (falls back to English for missing keys, as the app does).
+  /// - [textDirection] forces a direction, e.g. [TextDirection.rtl] for layout tests.
+  /// - With [wrapInScaffold] (default) the widget is placed in a [Scaffold] body, which most components expect.
+  ///   Pass `false` for pages that bring their own scaffold.
+  ///
+  /// Riverpod's automatic retry is disabled, so a failing provider stays in its error state (and leaves no pending
+  /// timer behind).
+  ///
+  /// Requires [setUpWidgetTests] in the test file.
+  Future<void> pumpApp(
+    Widget widget, {
+    List<Override> overrides = const [],
+    TestDevice device = TestDevice.phone,
+    ThemeData? theme,
+    ThemeData? darkTheme,
+    ThemeMode themeMode = ThemeMode.light,
+    Locale locale = _english,
+    TextDirection? textDirection,
+    bool wrapInScaffold = true,
+  }) {
+    return _pumpHost(
+      overrides: overrides,
+      device: device,
+      locale: locale,
+      app: (context, delegates) => MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: theme ?? _defaultLight,
+        darkTheme: darkTheme ?? _defaultDark,
+        themeMode: themeMode,
+        locale: context.locale,
+        supportedLocales: context.supportedLocales,
+        localizationsDelegates: delegates,
+        builder: _directionBuilder(textDirection),
+        home: wrapInScaffold ? Scaffold(body: widget) : widget,
+      ),
+    );
+  }
+
+  /// Like [pumpApp], but hosts [router] in a [MaterialApp.router], for tests of shells, navigation and pages.
+  ///
+  /// `goRouterProvider` is overridden with [router], so code navigating via the provider uses it too.
+  Future<void> pumpRouterApp(
+    GoRouter router, {
+    List<Override> overrides = const [],
+    TestDevice device = TestDevice.phone,
+    ThemeData? theme,
+    ThemeData? darkTheme,
+    ThemeMode themeMode = ThemeMode.light,
+    Locale locale = _english,
+    TextDirection? textDirection,
+  }) {
+    addTearDown(router.dispose);
+    return _pumpHost(
+      overrides: [goRouterProvider.overrideWithValue(router), ...overrides],
+      device: device,
+      locale: locale,
+      app: (context, delegates) => MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: theme ?? _defaultLight,
+        darkTheme: darkTheme ?? _defaultDark,
+        themeMode: themeMode,
+        locale: context.locale,
+        supportedLocales: context.supportedLocales,
+        localizationsDelegates: delegates,
+        builder: _directionBuilder(textDirection),
+        routerConfig: router,
+      ),
+    );
+  }
+
+  Future<void> _pumpHost({
+    required List<Override> overrides,
+    required TestDevice device,
+    required Locale locale,
+    required Widget Function(BuildContext context, List<LocalizationsDelegate<dynamic>> delegates) app,
+  }) async {
+    device.apply(this);
+
+    await pumpWidget(
+      ProviderScope(
+        retry: (_, _) => null,
+        overrides: overrides,
+        child: EasyLocalization(
+          supportedLocales: {_english, locale}.toList(),
+          fallbackLocale: _english,
+          startLocale: locale,
+          useFallbackTranslations: true,
+          saveLocale: false,
+          path: 'assets/translations',
+          assetLoader: const TestTranslationsLoader(),
+          child: ResponsiveBreakpoints(
+            breakpoints: appBreakpoints(),
+            child: Builder(
+              builder: (context) => app(context, [
+                ...context.localizationDelegates,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+                FormBuilderLocalizations.delegate,
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+    // easy_localization loads the translations asynchronously; the first frames are empty until then.
+    await pump();
+    await pump();
+  }
+
+  /// Unmounts the app and runs the timers providers start when they lose their last listener (`ref.keepAliveFor`
+  /// keeps them for 30 s by default, the history for 5 min), so none is pending when the test ends ("A Timer is still
+  /// pending even after the widget tree was disposed").
+  Future<void> unmountApp() async {
+    await pumpWidget(const SizedBox());
+    await pump(const Duration(minutes: 5, seconds: 1));
+  }
+
+  /// Pumps until a provider change made by the test (a stream event, a notifier update, an override change) is on
+  /// screen.
+  ///
+  /// Riverpod 3 delivers provider changes to widgets on the next frame, so a single [pump] shows the old state.
+  Future<void> pumpProviders() async {
+    await pump();
+    await pump();
+  }
+}

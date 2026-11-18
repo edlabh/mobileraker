@@ -35,17 +35,12 @@ dependencies:
   google_mobile_ads: ^9.0.0
 
   #purchases
-  purchases_flutter: ^10.16.0
+  purchases_flutter: ^10.19.0
 
   #notification
 #  awesome_notifications_core: ^0.11.0
   awesome_notifications: ^0.12.0
   awesome_notifications_fcm: ^0.12.0
-  live_activities: ^2.4.1
-  #        ref: main
-  #      ref: feature/multi-state-req
-#  live_activities:
-#    path: ../../flutter_live_activities
 
   #routing
   go_router: ^17.3.0
@@ -68,9 +63,13 @@ dependencies:
 
   #reactive UI
   responsive_framework: ^1.4.0
+  # iPhone Duo / foldables: native fold bridge (foldable) and fold geometry (duo_kit), see docs/iphone_duo_support.md
+  foldable: ^1.0.5
+  duo_kit: ^0.1.2
 
   #bottomsheet:
-  smooth_sheets: ^1.0.3
+  # 1.3.0 migrated to package:material_ui, whose Material is not detected by flutter/material widgets
+  smooth_sheets: ">=1.0.3 <1.3.0"
 
   #ui
   flutter_vector_icons: ^2.0.0
@@ -80,15 +79,15 @@ dependencies:
   pull_to_refresh_flutter3: ^2.0.2
 
   #misc
-  talker_flutter: ^5.1.16
+  talker_flutter: ^5.2.0
   rxdart: ^0.28.0
   stringr: ^1.2.1
   collection: ^1.19.0
   uuid: ^4.5.2
-  network_info_plus: ^7.0.0
-  permission_handler: ^12.0.0+1
+  network_info_plus: ^8.0.0
+  permission_handler: ^13.0.2
   url_launcher: ^6.3.1
-  package_info_plus: ^9.0.1
+  package_info_plus: ^10.2.2
   vector_math: ^2.1.4
   form_builder_validators: ^11.0.0
   keep_screen_on: ^6.0.0
@@ -101,6 +100,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  test_support:
+    path: ../test_support
   mockito: ^5.4.5
   flutter_lints: ^6.0.0
   # riverpod_lint and custom_lint removed: requires Dart 3.10+ for compatibility with riverpod 3.2+
@@ -109,6 +110,7 @@ dev_dependencies:
   json_serializable: ^6.9.5
   riverpod_generator: ^4.0.4
   hive_ce_generator: ^1.8.0
+  pigeon: ^27.3.0
 
 flutter:
   fonts:

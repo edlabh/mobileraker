@@ -3,15 +3,13 @@
  * All rights reserved.
  */
 
-import 'package:common/data/enums/webcam_service_type.dart';
 import 'package:common/data/model/hive/machine.dart';
 import 'package:common/data/model/moonraker_db/webcam_info.dart';
 import 'package:common/network/dio_provider.dart';
 import 'package:common/network/jrpc_client_provider.dart';
 import 'package:common/network/json_rpc_client.dart';
-import 'package:common/service/firebase/remote_config.dart';
+import 'package:common/ui/components/webcam_status_view.dart';
 import 'package:common/util/misc.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobileraker_pro/mobileraker_pro.dart';
@@ -23,7 +21,7 @@ class WebcamWebRtc extends ConsumerWidget {
     required this.machine,
     this.stackContent = const [],
     this.imageBuilder,
-    this.onHidePressed,
+    this.statusStyle = WebcamStatusStyle.compact,
   });
 
   final WebcamInfo webcamInfo;
@@ -34,7 +32,7 @@ class WebcamWebRtc extends ConsumerWidget {
 
   final ImageBuilder? imageBuilder;
 
-  final VoidCallback? onHidePressed;
+  final WebcamStatusStyle statusStyle;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,14 +67,6 @@ class WebcamWebRtc extends ConsumerWidget {
         break;
     }
 
-    final showWarning = ref.watch(remoteConfigBoolProvider('oe_webrtc_warning'));
-    if (clientType == ClientType.octo && showWarning && webcamInfo.service == WebcamServiceType.webRtcCamStreamer) {
-      return Text(
-        'components.web_rtc.oe_warning',
-        style: Theme.of(context).textTheme.bodySmall,
-      ).tr();
-    }
-
     return WebRtc(
       key: ValueKey('${webcamInfo.uid ?? webcamInfo.name}#${machine.uuid}'),
       camUri: webRtcUri,
@@ -86,7 +76,6 @@ class WebcamWebRtc extends ConsumerWidget {
       rotation: webcamInfo.rotation,
       transform: webcamInfo.transformMatrix,
       imageBuilder: imageBuilder,
-      onHidePressed: onHidePressed,
     );
   }
 }

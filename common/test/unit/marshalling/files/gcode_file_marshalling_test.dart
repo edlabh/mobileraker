@@ -32,8 +32,8 @@ void main() {
     expect(obj.firstLayerTempBed, 110);
     expect(obj.firstLayerTempExtruder, 285);
     expect(obj.chamberTemp, 50);
-    expect(obj.filamentName, 'AzurFilm ABS+ @VORON');
-    expect(obj.filamentType, 'ABS');
+    expect(obj.filamentNames, ['AzurFilm ABS+ @VORON']);
+    expect(obj.filamentTypes, ['ABS']);
     expect(obj.filamentTotal, 7251.81);
     expect(obj.filamentWeightTotal, 18.84);
 
@@ -75,6 +75,36 @@ void main() {
     expect(obj.gcodeEndByte, 11222275);
     expect(obj.layerCount, 83);
     expect(obj.estimatedTime, 5624);
+  });
+
+  test('GCodeFile fromJson with the multi material metadata of Snapmaker (quoted names, filament_colour)', () {
+    final file = GCodeFile.fromJson({
+      'filename': 'Dragon.gcode',
+      'modified': 1762406969.96,
+      'size': 12503499,
+      'filament_name': 'Snapmaker PLA @U1";"Snapmaker PLA @U1";"Snapmaker PETG @U1',
+      'filament_type': 'PLA;PLA;PETG',
+      'filament_weight': [23.45, 4.78, 2.79],
+      'filament_colour': '#FB0207;#000000;#FFFFFF',
+    }, 'gcodes');
+
+    expect(file.filamentNames, ['Snapmaker PLA @U1', 'Snapmaker PLA @U1', 'Snapmaker PETG @U1']);
+    expect(file.filamentTypes, ['PLA', 'PLA', 'PETG']);
+    expect(file.filamentColors, ['#FB0207', '#000000', '#FFFFFF']);
+    expect(file.filamentWeights, [23.45, 4.78, 2.79]);
+  });
+
+  test('GCodeFile fromJson with the filament colors and weights of Moonraker', () {
+    final file = GCodeFile.fromJson({
+      'filename': 'Dragon.gcode',
+      'modified': 1762406969.96,
+      'size': 12503499,
+      'filament_colors': ['#FB0207', '#000000'],
+      'filament_weights': [23.45, 4.78],
+    }, 'gcodes');
+
+    expect(file.filamentColors, ['#FB0207', '#000000']);
+    expect(file.filamentWeights, [23.45, 4.78]);
   });
 
   test('GCodeFile fromJson with nozzle_diameter as single number', () {

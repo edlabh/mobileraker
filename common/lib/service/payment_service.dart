@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:common/service/demo/demo_printer.dart';
 import 'package:common/service/firebase/auth.dart';
 import 'package:common/service/misc_providers.dart';
 import 'package:common/util/extensions/object_extension.dart';
@@ -14,12 +15,14 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:stringr/stringr.dart';
 
 import '../data/model/firestore/supporters.dart';
 import 'firebase/firestore.dart';
 import 'notification_service.dart';
+import 'selected_machine_service.dart';
 import 'setting_service.dart';
 import 'ui/snackbar_service_interface.dart';
 
@@ -83,6 +86,37 @@ FutureOr<bool> isSupporterAsync(Ref ref) async {
   if (kDebugMode) return true;
   var customerInfo = await ref.watch(customerInfoProvider.future);
   return customerInfo.entitlements.active.containsKey('Supporter') == true;
+}
+
+/// Whether Pro features can be used for the printer [machineUUID]: by supporters, and by everyone on the demo printer
+/// so they can try them. Gate features that act on a printer with this, and keep [isSupporter] for app-wide perks
+/// (themes, ads, printer limits) and for anything that tells who is a supporter. As it is bound to the printer, the
+/// demo printer never unlocks anything on a real one.
+@riverpod
+bool canUseProFeatures(Ref ref, String machineUUID) {
+  if (isDemoMachine(machineUUID)) return true;
+  return ref.watch(isSupporterProvider);
+}
+
+/// Async variant of [canUseProFeatures] that waits for the purchases to be known.
+@riverpod
+Future<bool> canUseProFeaturesAsync(Ref ref, String machineUUID) async {
+  if (isDemoMachine(machineUUID)) return true;
+  return ref.watch(isSupporterAsyncProvider.future);
+}
+
+/// [canUseProFeatures] for the selected printer. Only for widgets that do not know their printer's UUID and only ever
+/// show the selected printer, everything else uses [canUseProFeatures] with the UUID.
+@riverpod
+bool canUseProFeaturesOnSelected(Ref ref) {
+  if (ref.watch(isDemoSelectedProvider)) return true;
+  return ref.watch(isSupporterProvider);
+}
+
+/// Whether the selected printer is the demo printer. Pro features are unlocked there, the UI marks them as Pro.
+@Riverpod(keepAlive: true)
+bool isDemoSelected(Ref ref) {
+  return ref.watch(selectedMachineProvider.select((m) => isDemoMachine(m.value?.uuid)));
 }
 
 /// Returns the platform, if any, where the user bought the supporter package

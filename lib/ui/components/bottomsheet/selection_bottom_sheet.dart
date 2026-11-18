@@ -10,7 +10,6 @@ import 'package:common/service/ui/bottom_sheet_service_interface.dart';
 import 'package:common/ui/animation/animated_size_and_fade.dart';
 import 'package:common/util/extensions/object_extension.dart';
 import 'package:common/util/extensions/string_extension.dart';
-import 'package:common/util/logger.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
@@ -46,10 +45,8 @@ class SelectionBottomSheet<T> extends HookConsumerWidget {
       }
     }, [optionsSnapshot.connectionState]);
 
-    talker.warning('SelectionBottomSheet: ${optionsSnapshot}');
-
     return SheetContentScaffold(
-      topBar: _Title(arguments: arguments, textEditingController: textCtl),
+      topBar: _Title(arguments: arguments, textEditingController: textCtl, selected: selected),
       body: _bodyFromSnapshot(optionsSnapshot, textCtl, selected),
       bottomBarVisibility: BottomBarVisibility.always(),
       bottomBar: SafeArea(
@@ -95,11 +92,14 @@ class SelectionBottomSheet<T> extends HookConsumerWidget {
   }
 }
 
-class _Title<T> extends HookWidget implements PreferredSizeWidget {
-  const _Title({super.key, required this.arguments, required this.textEditingController});
+class _Title<T> extends HookWidget {
+  const _Title({super.key, required this.arguments, required this.textEditingController, this.selected});
 
   final SelectionBottomSheetArgs<T> arguments;
   final TextEditingController textEditingController;
+
+  /// The selection of a multi select sheet.
+  final ValueNotifier<List<T>>? selected;
 
   @override
   Widget build(BuildContext context) {
@@ -109,14 +109,14 @@ class _Title<T> extends HookWidget implements PreferredSizeWidget {
       icon: const Icon(Icons.arrow_back),
       tooltip: MaterialLocalizations
           .of(context)
-          .closeButtonTooltip,
+          .backButtonTooltip,
       onPressed: context.pop,
     ).only((ModalRoute
         .of(context)
         ?.impliesAppBarDismissal == true));
 
     return Column(
-      // mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         ListTile(
@@ -127,6 +127,7 @@ class _Title<T> extends HookWidget implements PreferredSizeWidget {
           // horizontalTitleGap: 8,
           title: arguments.title,
           subtitle: arguments.subtitle,
+          trailing: arguments.showDeselectAll ? _DeselectAll(selected: selected) : null,
         ),
         if (arguments.showSearch) ...[
           Padding(
@@ -152,10 +153,28 @@ class _Title<T> extends HookWidget implements PreferredSizeWidget {
       ],
     );
   }
+}
+
+/// Clears the selection of a multi select sheet, only shown while something is selected.
+class _DeselectAll<T> extends HookWidget {
+  const _DeselectAll({super.key, required this.selected});
+
+  final ValueNotifier<List<T>>? selected;
 
   @override
-  Size get preferredSize {
-    return Size.fromHeight(kToolbarHeight + (arguments.showSearch ? 62 : 0) + (arguments.subtitle != null ? 15 : 0));
+  Widget build(BuildContext context) {
+    final anySelected = useListenableSelector(selected, () => selected?.value.isNotEmpty == true);
+
+    return AnimatedSwitcher(
+      duration: kThemeAnimationDuration,
+      child: anySelected
+          ? TextButton(
+              key: const Key('deselectAll'),
+              onPressed: () => selected?.value = [],
+              child: const Text('general.deselect_all').tr(),
+            )
+          : const SizedBox.shrink(),
+    );
   }
 }
 
@@ -238,13 +257,10 @@ class _FilteredResults<T> extends StatelessWidget {
 
     return options
         .map(
-          (e) => (
-            e,
-            e.label.searchScore(term, searchTokens),
-          ).also((it) => talker.warning('Score: ${it.$2} for ${it.$1.label}')),
+          (e) => (e, e.label.searchScore(term, searchTokens)),
         )
         .where((e) => e.$2 > 150)
-        .sortedBy<num>((e) => e.$2)
+        .sortedBy<num>((e) => -e.$2) // Best match first
         .map((e) => e.$1)
         .toList();
   }
@@ -269,7 +285,12 @@ class _Entry<T> extends HookWidget {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: themeData.useMaterial3 ? const EdgeInsets.only(left: 12.0) : EdgeInsets.zero,
+        // In multi-select, adjacent selected M3 pills would merge into one block, so space them out vertically.
+        padding: switch ((themeData.useMaterial3, selectedNotifier != null)) {
+          (true, true) => const EdgeInsets.only(left: 12.0, top: 2, bottom: 2),
+          (true, false) => const EdgeInsets.only(left: 12.0),
+          _ => EdgeInsets.zero,
+        },
         child: ListTile(
           enabled: option.enabled,
           selected: isSelected,
@@ -314,8 +335,12 @@ class SelectionBottomSheetArgs<T> {
     required this.options,
     this.showSearch = true,
     this.multiSelect = false,
+    this.showDeselectAll = false,
     this.onConfirmed,
   });
+
+  /// With [multiSelect]: a button at the top right that clears the selection, while anything is selected.
+  final bool showDeselectAll;
 
   final Widget? title;
   final Widget? subtitle;
@@ -353,10 +378,11 @@ class SelectionBottomSheetArgs<T> {
           const DeepCollectionEquality().equals(other.options, options) &&
           showSearch == other.showSearch &&
           multiSelect == other.multiSelect &&
+          showDeselectAll == other.showDeselectAll &&
           title == other.title;
 
   @override
-  int get hashCode => Object.hash(const DeepCollectionEquality().hash(options), title, showSearch, multiSelect);
+  int get hashCode => Object.hash(const DeepCollectionEquality().hash(options), title, showSearch, multiSelect, showDeselectAll);
 }
 
 @immutable

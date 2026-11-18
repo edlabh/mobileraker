@@ -65,7 +65,7 @@ FileInteractionService fileInteractionService(Ref ref, String machineUUID) {
     ref.watch(jobQueueServiceProvider(machineUUID)),
     ref.watch(printerServiceProvider(machineUUID)),
     ref.watch(goRouterProvider),
-    ref.watch(isSupporterProvider),
+    ref.watch(canUseProFeaturesProvider(machineUUID)),
   );
 }
 
@@ -283,7 +283,10 @@ class FileInteractionService {
 
   Stream<FileInteractionMenuEvent> renameFileAction(RemoteFile file, List<String>? usedNames) async* {
     usedNames ??= await _fileService.fetchDirectoryInfo(file.parentPath).then((e) => e.folderFileNames);
-    usedNames!.remove(file.name);
+    // A copy, the list belongs to the caller.
+    final otherNames = {...usedNames!}..remove(file.name);
+    // The dialog asks for the name without the extension (it is the suffix), the used names have it.
+    final extension = file.fileExtension?.let((it) => '.$it') ?? '';
 
     var dialogResponse = await _dialogService.show(
       DialogRequest(
@@ -300,7 +303,8 @@ class FileInteractionService {
               RegExp(r'^\w?[\w .-]*[\w-]$'),
               errorText: tr('pages.files.no_matches_file_pattern'),
             ),
-            notContains(usedNames, errorText: tr('form_validators.file_name_in_use')),
+            (String? value) =>
+                value != null && otherNames.contains('$value$extension') ? tr('form_validators.file_name_in_use') : null,
           ]),
         ),
       ),
@@ -695,21 +699,19 @@ class FileInteractionService {
 
     bool useAny = kDebugMode || Platform.isAndroid;
 
-    FilePickerResult? result = await FilePicker.pickFiles(
-      type: useAny ? FileType.any : FileType.custom,
-      allowedExtensions: allowedFileTypes.unless(useAny),
-      withReadStream: true,
-      allowMultiple: multiple,
-      withData: false,
-    );
+    final type = useAny ? FileType.any : FileType.custom;
+    final allowedExtensions = allowedFileTypes.unless(useAny);
+    final List<PlatformFile> result = multiple
+        ? await FilePicker.pickFiles(type: type, allowedExtensions: allowedExtensions)
+        : [?await FilePicker.pickFile(type: type, allowedExtensions: allowedExtensions)];
 
     talker.info('[FileInteractionService($_machineUUID)] FilePicker result: $result');
-    if (result == null || result.count == 0) return;
+    if (result.isEmpty) return;
 
     // If we did not filter by OS, we need to check the file extension manually here
 
     if (useAny) {
-      final invalidFiles = result.files.where((e) => !allowedFileTypes.contains(e.extension));
+      final invalidFiles = result.where((e) => !allowedFileTypes.contains(e.extension));
       if (invalidFiles.isNotEmpty) {
         _snackBarService.show(
           SnackBarConfig(
@@ -726,14 +728,21 @@ class FileInteractionService {
       }
     }
 
-    for (var toUpload in result.files) {
+    for (var toUpload in result) {
       talker.info('[FileInteractionService($_machineUUID)] Selected file: ${toUpload.name}');
+
+      final length = await toUpload.length();
+      if (length == null) {
+        talker.warning('[FileInteractionService($_machineUUID)] Could not determine length of ${toUpload.name}');
+        yield FileActionFailed(action: FileSheetAction.uploadFile, files: [], error: 'Could not read file');
+        continue;
+      }
 
       final relativeToRoot = parentPath.split('/').skip(1).join('/');
 
       final mPrt = MultipartFile.fromStream(
-        () => toUpload.readStream!,
-        toUpload.size,
+        () => toUpload.readAsByteStream(),
+        length,
         filename: '$relativeToRoot/${toUpload.name}',
       );
       yield* _handleFileUpload(parentPath, mPrt);

@@ -4,6 +4,7 @@
  */
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:common/data/dto/files/folder.dart';
 import 'package:common/data/dto/files/gcode_file.dart';
@@ -51,19 +52,22 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:flutter_vector_icons/flutter_vector_icons.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobileraker/service/ui/file_interaction_service.dart';
+import 'package:mobileraker/ui/components/machine_state_indicator.dart';
 import 'package:mobileraker/ui/components/bottomsheet/settings_bottom_sheet.dart';
 import 'package:mobileraker/ui/components/bottomsheet/sort_mode_bottom_sheet.dart';
 import 'package:mobileraker/ui/components/job_queue_fab.dart';
 import 'package:mobileraker/ui/screens/files/components/remote_file_list_tile.dart';
+import 'package:mobileraker/ui/screens/files/details/gcode_file_details_page.dart';
 import 'package:mobileraker_pro/ads/ad_block_unit.dart';
 import 'package:mobileraker_pro/ads/ui/ad_banner.dart';
+import 'package:mobileraker_pro/job_queue/service/job_queue_service.dart';
 import 'package:mobileraker_pro/service/ui/pro_sheet_type.dart';
 import 'package:persistent_header_adaptive/persistent_header_adaptive.dart';
 import 'package:pull_to_refresh_flutter3/pull_to_refresh_flutter3.dart';
@@ -76,6 +80,7 @@ import '../../../service/ui/bottom_sheet_service_impl.dart';
 import '../../components/connection/machine_connection_guard.dart';
 import 'components/shimmer_file_list.dart';
 import 'components/sorted_file_list_header.dart';
+import 'components/timelapse_last_frame.dart';
 
 part 'file_manager_page.freezed.dart';
 part 'file_manager_page.g.dart';
@@ -97,17 +102,11 @@ class FileManagerPage extends HookConsumerWidget {
           _Body(machineUUID: machineUUID, filePath: filePath, scrollController: scrollController),
     );
     final fab = _Fab(filePath: filePath, scrollController: scrollController);
-    if (context.isLargerThanCompact && isRoot) {
-      body = NavigationRailView(
-        // leading: fab,
-        page: Padding(padding: const EdgeInsets.only(left: 2.0), child: body),
-      );
-    }
 
     return PrimaryScrollController(
       controller: scrollController,
-      child: Scaffold(
-        appBar: _AppBar(filePath: filePath, folder: folder),
+      child: RailScaffold(
+        appBar: _AppBar(filePath: filePath, folder: folder, leading: RailScaffold.impliedLeadingOf(context)),
         drawer: const NavigationDrawerWidget().only(isRoot),
         bottomNavigationBar: _BottomNav(filePath: filePath).unless(context.isLargerThanCompact),
         floatingActionButton: fab,
@@ -118,11 +117,14 @@ class FileManagerPage extends HookConsumerWidget {
 }
 
 class _AppBar extends HookConsumerWidget implements PreferredSizeWidget {
-  const _AppBar({super.key, required this.filePath, this.folder});
+  const _AppBar({super.key, required this.filePath, this.folder, this.leading});
 
   final String filePath;
 
   final Folder? folder;
+
+  /// See [RailScaffold.impliedLeadingOf], this widget is built by the shell on larger layouts.
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -132,7 +134,7 @@ class _AppBar extends HookConsumerWidget implements PreferredSizeWidget {
     final selMachine = ref.watch(selectedMachineProvider).value;
 
     if (selMachine == null) {
-      return AppBar(title: Text(title.capitalize()));
+      return AppBar(leading: leading, title: Text(title.capitalize()));
     }
 
     return Consumer(
@@ -143,6 +145,10 @@ class _AppBar extends HookConsumerWidget implements PreferredSizeWidget {
         );
 
         final actions = [
+          // In the navigation rail only the main FAB is shown (one primary action, so the rail's entries never move),
+          // the job queue moves to the app bar.
+          if (RailScaffold.showsRailOf(context) && _isGcodePath(filePath))
+            _JobQueueAction(machineUUID: selMachine.uuid, onPressed: controller.onClickJobQueueFab),
           IconButton(
             tooltip: tr('pages.files.search_files'),
             icon: const Icon(Icons.search),
@@ -168,8 +174,18 @@ class _AppBar extends HookConsumerWidget implements PreferredSizeWidget {
         ];
 
         final defaultBar = isRoot
-            ? SwitchPrinterAppBar(key: const Key('file_manager_app_bar'), title: title.capitalize(), actions: actions)
-            : AppBar(key: const Key('file_manager_app_bar'), title: Text(title.capitalize()), actions: actions);
+            ? SwitchPrinterAppBar(
+                key: const Key('file_manager_app_bar'),
+                title: title.capitalize(),
+                status: MachineStatusLabel(selMachine),
+                actions: actions,
+              )
+            : AppBar(
+                key: const Key('file_manager_app_bar'),
+                leading: leading,
+                title: Text(title.capitalize()),
+                actions: actions,
+              );
 
         return AnimatedSwitcher(
           duration: kThemeAnimationDuration,
@@ -248,6 +264,8 @@ class _Fab extends HookConsumerWidget {
         );
 
         final isUpOrDownloading = isUploading || isDownloading;
+        // In the navigation rail, the FAB covers no content and has to fit the rail's width.
+        final inRail = RailScaffold.showsRailOf(context);
 
         final connected = ref.watch(
           jrpcClientStateProvider(selectedMachine.uuid).select((d) => d.value == ClientState.connected),
@@ -283,7 +301,8 @@ class _Fab extends HookConsumerWidget {
         }, [scrollController, filePath, isSelecting, isUpOrDownloading]);
 
         final children = [
-          if (filePath == 'gcodes') ...[
+          // Job queue entries are gcode files, hence also offered in sub folders. In the rail, it is in the app bar.
+          if (_isGcodePath(filePath) && !inRail) ...[
             AnimatedSwitcher(
               duration: kThemeAnimationDuration,
               switchInCurve: Curves.easeInOutCubicEmphasized,
@@ -309,7 +328,14 @@ class _Fab extends HookConsumerWidget {
               }.only(!isFilesLoading),
               child: const Icon(Icons.add),
             ),
-          if (isUpOrDownloading && !isUpOrDownloadDone)
+          if (isUpOrDownloading && !isUpOrDownloadDone && inRail)
+            FloatingActionButton(
+              heroTag: '${selectedMachine.uuid}-main',
+              onPressed: controller.onClickCancelUpOrDownload,
+              tooltip: tr('pages.files.cancel_fab', gender: isUploading ? 'upload' : 'download'),
+              child: const Icon(Icons.close),
+            ),
+          if (isUpOrDownloading && !isUpOrDownloadDone && !inRail)
             FloatingActionButton.extended(
               heroTag: '${selectedMachine.uuid}-main',
               onPressed: controller.onClickCancelUpOrDownload,
@@ -325,7 +351,7 @@ class _Fab extends HookConsumerWidget {
         final fab = Column(
           key: const Key('file_manager_fab'),
           mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: isUpOrDownloading ? CrossAxisAlignment.end : CrossAxisAlignment.center,
+          crossAxisAlignment: isUpOrDownloading && !inRail ? CrossAxisAlignment.end : CrossAxisAlignment.center,
           children: children,
         );
         return AnimatedSwitcher(
@@ -334,11 +360,40 @@ class _Fab extends HookConsumerWidget {
           switchOutCurve: Curves.easeInOutCubicEmphasized,
           // duration: kThemeAnimationDuration,
           transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
-          child: isScrolling.value || !connected || filePath == 'timelapse' || isSelecting && !isUpOrDownloading
+          child:
+              isScrolling.value && !inRail || !connected || filePath == 'timelapse' || isSelecting && !isUpOrDownloading
               ? const SizedBox.shrink(key: Key('file_manager_fab-hidden'))
               : fab,
         );
       },
+    );
+  }
+}
+
+bool _isGcodePath(String filePath) => filePath == 'gcodes' || filePath.startsWith('gcodes/');
+
+/// The job queue as app bar action, with the number of queued jobs as badge. Hidden while the queue is empty.
+class _JobQueueAction extends ConsumerWidget {
+  const _JobQueueAction({required this.machineUUID, required this.onPressed});
+
+  final String machineUUID;
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final queuedJobs = ref.watch(jobQueueProvider(machineUUID).select((d) => d.value?.queuedJobs.length ?? 0));
+
+    return AnimatedSwitcher(
+      duration: kThemeAnimationDuration,
+      transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+      child: queuedJobs == 0
+          ? const SizedBox.shrink()
+          : IconButton(
+              tooltip: tr('pages.paywall.benefits.job_queue_perk.title'),
+              onPressed: onPressed,
+              icon: Badge.count(count: queuedJobs, child: const Icon(Icons.content_paste)),
+            ),
     );
   }
 }
@@ -490,7 +545,13 @@ class _TabbarNav extends HookConsumerWidget {
   }
 }
 
-class _Body extends StatelessWidget {
+/// Min. width of the file manager's body for the list-detail layout.
+const double _listDetailMinWidth = 720;
+
+/// Max. width of the file list in the list-detail layout, the details take the rest.
+const double _maxListWidth = 400;
+
+class _Body extends HookWidget {
   const _Body({super.key, required this.machineUUID, required this.filePath, required this.scrollController});
 
   final String machineUUID;
@@ -501,13 +562,95 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ResponsiveLimit(
+    final selection = useValueNotifier<GCodeFile?>(null);
+
+    final list = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (context.isLargerThanCompact) _TabbarNav(filePath: filePath),
+        Expanded(
+          child: _FileList(machineUUID: machineUUID, filePath: filePath, scrollController: scrollController),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!_isGcodePath(filePath) || constraints.maxWidth < _listDetailMinWidth) return ResponsiveLimit(child: list);
+
+        // List-detail on larger layouts (tablets, foldables): the details of gcode files are shown next to the list
+        // instead of as their own page.
+        return _DetailSelection(
+          notifier: selection,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: math.min(_maxListWidth, constraints.maxWidth * 0.4), child: list),
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: _DetailPane(machineUUID: machineUUID, filePath: filePath),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The gcode file shown in the detail pane of the list-detail layout. Only present if the layout is used.
+class _DetailSelection extends InheritedNotifier<ValueNotifier<GCodeFile?>> {
+  const _DetailSelection({required super.notifier, required super.child});
+
+  static ValueNotifier<GCodeFile?>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DetailSelection>()?.notifier;
+}
+
+class _DetailPane extends ConsumerWidget {
+  const _DetailPane({required this.machineUUID, required this.filePath});
+
+  final String machineUUID;
+
+  final String filePath;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedPath = _DetailSelection.maybeOf(context)?.value?.absolutPath;
+    // The current version of the file, hides the details once it is no longer in this folder (deleted, moved).
+    final file = ref.watch(
+      _modernFileManagerControllerProvider(machineUUID, filePath).select(
+        (d) =>
+            d.folderContent.value?.files.whereType<GCodeFile>().where((f) => f.absolutPath == selectedPath).firstOrNull,
+      ),
+    );
+
+    return AnimatedSwitcher(
+      duration: kThemeAnimationDuration,
+      child: file == null
+          ? const _DetailPanePlaceholder()
+          : GCodeFileDetailPage(key: ValueKey(file.absolutPath), gcodeFile: file, embedded: true),
+    );
+  }
+}
+
+class _DetailPanePlaceholder extends StatelessWidget {
+  const _DetailPanePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final themeData = Theme.of(context);
+    final color = themeData.textTheme.bodySmall?.color;
+
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (context.isLargerThanCompact) _TabbarNav(filePath: filePath),
-          Expanded(
-            child: _FileList(machineUUID: machineUUID, filePath: filePath, scrollController: scrollController),
+          Icon(Icons.description_outlined, size: 48, color: color),
+          const Gap(8),
+          Text(
+            tr('pages.files.detail_pane_hint'),
+            textAlign: TextAlign.center,
+            style: themeData.textTheme.bodyMedium?.copyWith(color: color),
           ),
         ],
       ),
@@ -744,6 +887,8 @@ class _FileListState extends ConsumerState<_FileListData> {
               isUserRefresh: _isUserRefresh,
             ),
           ),
+          if (widget.filePath == 'timelapse')
+            SliverToBoxAdapter(child: TimelapseLastFrame(machineUUID: widget.machineUUID)),
           if (widget.folderContent.isEmpty)
             SliverFillRemaining(
               child: Column(
@@ -870,6 +1015,10 @@ class _FileItem extends ConsumerWidget {
       decimalDigits: 1,
     );
 
+    // List-detail layout: gcode files open in the detail pane, the shown one is highlighted.
+    final detailSelection = file is GCodeFile ? _DetailSelection.maybeOf(context) : null;
+    final shownInPane = detailSelection?.value?.absolutPath == file.absolutPath;
+
     Widget subtitle = switch (sortMode) {
       SortMode.size => Text(numberFormat.formatFileSize(file.size)),
       SortMode.estimatedPrintTime when file is GCodeFile => Text(
@@ -883,7 +1032,7 @@ class _FileItem extends ConsumerWidget {
       _ => Text('@:pages.files.sort_by.last_modified: ${file.modifiedDate?.let(dateFormat.format) ?? '--'}').tr(),
     };
 
-    return RemoteFileListTile(
+    final tile = RemoteFileListTile(
       machineUUID: machineUUID,
       file: file,
       selected: selected,
@@ -911,6 +1060,8 @@ class _FileItem extends ConsumerWidget {
       onTap: () {
         if (selectionMode) {
           controller.onLongClickFile(file);
+        } else if (detailSelection != null) {
+          detailSelection.value = file as GCodeFile;
         } else {
           final box = context.findRenderObject() as RenderBox?;
           final pos = box!.localToGlobal(Offset.zero) & box.size;
@@ -920,6 +1071,11 @@ class _FileItem extends ConsumerWidget {
       onLongPress: () {
         controller.onLongClickFile(file);
       }.only(enabled),
+    );
+
+    return Material(
+      color: shownInPane ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12) : Colors.transparent,
+      child: tile,
     );
   }
 }
@@ -1038,7 +1194,12 @@ class _ModernFileManagerController extends _$ModernFileManagerController {
         _handleFileInteractionEventStream(fileAction);
         break;
       default:
-        _goRouter.pushNamed(AppRoute.fileManager_exlorer_editor.name, pathParameters: {'path': filePath}, queryParameters: {'machineUUID': machineUUID}, extra: file);
+        _goRouter.pushNamed(
+          AppRoute.fileManager_exlorer_editor.name,
+          pathParameters: {'path': filePath},
+          queryParameters: {'machineUUID': machineUUID},
+          extra: file,
+        );
     }
   }
 

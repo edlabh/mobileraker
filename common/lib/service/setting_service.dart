@@ -219,6 +219,8 @@ enum UtilityKeys implements KeyValueStoreKey {
   fcmTokenLastReset('fcmTokenLastReset'),
   graphSettings('graphSettings'),
   machineLastSeen('machineLastSeen'),
+  // Per machine (CompositeKey), the config entries of the extra sensors shown on the full cam page
+  fullCamSensors('fullCamSensors'),
   ;
 
   @override
@@ -236,8 +238,15 @@ enum UiKeys implements KeyValueStoreKey {
   hadWebcam('hWebcam'),
   hadPowerAPI('hPower'),
   hadFirmwareRetraction('hFwRetr'),
-  hadMoreMacros('hMoreMacros'),
   hadExtruder('hExtruder'),
+  hideWebcam('hideWebcam'),
+  // Name of the SpoolGroupBy the Spoolman page's spools are grouped by, 'none' for the flat list
+  spoolmanGroupBy('smGroupBy'),
+  // The sorts of the Spoolman page's lists as `<SortMode name>:<SortKind name>`
+  spoolmanGroupSort('smGroupSort'),
+  spoolmanSort('smSort'),
+  spoolmanFilamentSort('smFilamentSort'),
+  spoolmanVendorSort('smVendorSort'),
   ;
 
   @override

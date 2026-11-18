@@ -1,5 +1,165 @@
 # Mobileraker - Changelog
 
+## [2.9.15] - 2026-11-xx
+
+### Enhancements
+
+- **Demo Printer**: No printer at hand? The welcome screen now offers a demo printer that is simulated inside the
+  app, so you can explore Mobileraker without a printer. It runs a print, and its temperatures, fans, LEDs, files,
+  console, history, power devices, update manager, job queue and Spoolman all respond like a real one. Nothing you do
+  on it reaches a real printer. Pro features are unlocked on the demo printer so you can try them, marked with a PRO
+  badge. The demo printer does not count towards the printer limit and can be removed from its dashboard.
+
+- **Update Manager**: A new page for Moonraker's update manager. It lists the software registered on your printer
+  (Klipper, Moonraker, web interfaces, system packages, …) with the installed and the available version, the commits
+  an update brings and anything that needs attention, like a repo with local changes. Update a single software with
+  one tap and follow the live log while it runs. Updates are blocked while printing, just like Moonraker does. If an
+  update needs the sudo password of the host, the app asks for it and hands it to Moonraker.
+
+  *Note: Updating everything in one tap, rolling back to the previous version and recovering a broken repo are
+  available exclusively for "Supporters".*
+
+- **WebRTC via OctoEverywhere & Remote Connections**: WebRTC webcams using camera-streamer (e.g. Crowsnest) now work
+  through OctoEverywhere and other remote connections. The app now requests a STUN server like Mainsail does, which
+  allows the stream to reach your device from outside your local network. Older camera-streamer versions that do not
+  support this automatically fall back to the previous behavior. Note that very restrictive networks (e.g. some
+  mobile carriers) can still prevent a direct WebRTC connection. [#595](https://github.com/Clon1998/mobileraker/issues/595)
+
+  *Note: WebRTC is available exclusively for "Supporters".*
+
+- **Latest Timelapse Frame**: If moonraker-timelapse is installed, the webcam card's camera selection offers the
+  latest timelapse frame while a print is running. As frames are taken with the toolhead parked, this gives a clear
+  view of the print even if the toolhead blocks the live view. The frame updates with every new layer, uses the same
+  rotation/flip as the rendered timelapse, and the card switches back to the live view once the print is done. The
+  latest frame is also shown in the file manager's timelapse tab. [#450](https://github.com/Clon1998/mobileraker/issues/450)
+
+- **Configurable Fullscreen Webcam Temperatures**: Tap the temperatures in the fullscreen webcam view to choose which
+  sensors are shown, including chamber, generic heaters, temperature fans and sensors. Each sensor shows its live
+  reading (and target, if it has one) in the selection. By default the tools, the bed and a sensor named "chamber"
+  are shown. The selection is saved per printer. [#398](https://github.com/Clon1998/mobileraker/issues/398)
+
+- **Double Tap to Zoom**: Double tap the fullscreen webcam to smoothly zoom in on the tapped spot, double tap again to
+  zoom back out. Pinch to zoom still works as before.
+
+- **Webcam Unavailable State**: An unreachable webcam now shows a clear "Webcam unavailable" message with the likely
+  reason (HTTP error, timeout, unreachable) and a retry button, instead of raw error details.
+
+- **Print History**: A new page in the navigation shows the printer's print history with its lifetime totals. Prints
+  are grouped by day, repeated attempts of the same file are folded into a single entry, and the list can be
+  filtered, sorted and searched. Tap a print to print it again, open its file details or remove it from the history.
+
+- **Print Again**: While no print is running, the dashboard's status card offers the most recently printed files for
+  a quick reprint, along with a shortcut to the print history.
+  [#424](https://github.com/Clon1998/mobileraker/issues/424)
+
+- **Power Devices on the Overview**: If Klipper is not running, e.g. because the printer is powered off, its card on
+  the overview now offers a power button next to the other actions. It opens the printer's power devices, so you can
+  turn it on without opening its dashboard. The demo printer behaves like a printer whose Klipper is bound to its
+  power device: turning off the "Printer" device stops Klipper, turning it on starts it again.
+
+- **Hide Webcam Card**: The dashboard webcam card can now be collapsed by tapping its webcam icon. The stream stops
+  while hidden, and the choice is remembered per printer.
+
+- **Lock Icon Animation**: Smoother lock/unlock animation for the input lock on the limits, multipliers and firmware
+  retraction cards.
+
+- **Live Activity Thumbnails & New Look (iOS)**: The Live Activity now shows the thumbnail of the file being printed.
+  On iOS 26 and newer it uses the system's glass style. On iOS 27, the compact Dynamic Island content is centered and
+  shows the Mobileraker logo instead of the timer when space is limited (e.g. in landscape).
+  [#560](https://github.com/Clon1998/mobileraker/issues/560)
+
+- **Improved Tablet & iPhone Duo Support**: Mobileraker now makes much better use of large and foldable screens.
+  - **Navigation**: On tablets and other large screens, the navigation rail now stays in place when switching
+    pages. Only the page content changes, sliding up or down to follow the order of the rail entries, instead of the
+    whole screen sliding in. The rail also keeps the current section highlighted on its sub-pages (e.g. the
+    notification settings) and on pages opened from elsewhere, such as a printer opened from the overview.
+  - **iPhone Duo**: Following Apple's guidelines, navigation and the page's main action button live in the strip
+    the system reserves at the side of the screen, on the cover display and the inner display in landscape. The
+    app bar and page content use the remaining width.
+  - **List and Details Side by Side**: From 720 dp wide (tablets, unfolded foldables), the file manager and the
+    Spoolman page show the selected file, spool, filament or vendor next to the list instead of opening a new page.
+  - **Wider Layouts**: The printer overview uses an adaptive grid and the Supporter page a two-column layout on
+    larger screens.
+
+- **Redesigned Macro Card**: Macros are now shown as a compact grid of tiles instead of a wall of chips, showing the
+  macro names in a code font. Tiles of macros with parameters are marked with a tune icon. Groups are switched via
+  chips, and large groups are capped at three rows with a "+N more" tile. A "Recent" chip shows the macros you ran
+  last, including those run from Mainsail, Fluidd or the console, and is remembered like a group (falling back to the
+  first group while nothing was run). Tapping a macro still runs it right away (or asks for its parameters), long
+  press still skips the parameters. A short animation confirms that the macro was sent.
+
+- **Macro Sheet**: The new "All" button on the macro card (and the "+N more" tile) opens a sheet listing every macro
+  with its description. It can be searched by name and description, with the best matches first, and filtered by group
+  or "Recent". Macros with parameters expand right in the list to fill them in, with their defaults prefilled, instead
+  of opening a dialog.
+
+- **Printer Status in the App Bar**: The app bar of the dashboard, console, file manager and Spoolman pages now shows
+  the printer's name, with the page and the printer's state below it (e.g. "Dashboard · Printing 45%"). This covers
+  the connection, Klipper (e.g. "Klipper shutdown") and print states and replaces the small status dot. Remote
+  connections are still indicated by their icon.
+
+- **Spoolman Spool Selection**: The sheet to select the active spool got the same look as the macro sheet. Spools can
+  be searched by vendor, name, material, location or ID (e.g. "#7") and filtered by material. The active spool is
+  listed first, followed by the recently used ones, and each spool shows a bar of its remaining filament. The QR-Code
+  scanner moved from its own tab to a button in the search field. If the spool can not be set active, an error is
+  shown instead of the sheet loading forever. The Spoolman card shows the same remaining bar.
+
+- **Weigh a Spool**: The "Adjust Spool Filament" dialog has a new "Measured" mode next to weight and length. Put the
+  spool on a scale and enter its gross weight; Spoolman subtracts the empty spool weight and books the difference as
+  used filament. The dialog shows which empty spool weight is used (spool, filament or, from Spoolman v0.27.1, the
+  manufacturer) and the filament left. If no empty spool weight is set, it explains why instead of sending a wrong
+  value. Decimal commas are accepted.
+
+- **Spoolman NFC Tags**: With Spoolman v0.27.0 or newer, spools and filaments can be linked to NFC tags, e.g. an NTAG
+  sticker or the tag a spool comes with. The spool and filament details list the linked tags, link a new one by
+  holding it to the phone and unlink them. A tag already linked elsewhere can be moved. The spool selection has an NFC
+  button next to the QR scanner: a spool's tag shows that spool to set active, a filament's tag lists its spools. Only
+  shown on phones with NFC.
+
+- **Spoolman Page Redesign**: Spools, filaments and manufacturers are shown as cards in the style of the print
+  history. With Spoolman v0.26.0 or newer, the spools are grouped by filament (or by location, manufacturer or
+  material, or not at all): each group shows the colors, the remaining filament and when it was used last, and
+  expands to its spools. Unused spools of the same filament and weight are folded into a single entry. Every list can
+  be sorted, e.g. by remaining weight or last use, and the choice is remembered. Like in the file manager, the sort and
+  a filter button sit in a header that hides while scrolling; active filters are shown as chips below it and can be
+  removed with a tap. On Spoolman v0.26.0 or newer, the spool selection's search uses Spoolman's search, which also
+  finds spools by comment, lot number, extra fields or color (e.g. "red").
+
+- **Printer Actions, Services, Job Queue and Confirmation Sheets**: These sheets got the same look as the macro sheet.
+  The printer actions (opened from the dashboard while not printing) are now a list with a short description for each
+  action, and note that a long press skips the confirmation. Manage Services shows the state of each service (e.g.
+  "Running", "Failed"). The job queue shows the number of jobs and the queue state in its header, with start/pause and
+  clear next to it, and longer file names. Confirmations show cancel and confirm side by side.
+
+### Bug Fixes
+
+- **Spoolman Date Fields**: The first/last used fields of the spool form and date extra fields used the US date format
+  instead of the app's language and ignored the 12/24 h setting.
+
+- **API Key Prompt**: The "Printer Settings" button on the screen asking for a Moonraker API key now opens the
+  printer's settings instead of doing nothing.
+
+- **Macro Parameters**: Running a macro while leaving a parameter without default value empty no longer fails
+  silently. The macro is now sent without that parameter.
+
+- **File Details**: The "Print" button is now disabled while another print is running or paused.
+
+- **Temperature Presets**: Applying a preset on a printer without a heated bed no longer tries to set a bed
+  temperature, which Klipper rejected with an error.
+
+- **Overview Printer Cards**: Printer cards on the overview can now be tapped in every state to open the printer's
+  dashboard, not only while Klipper is ready. Previously a printer that is e.g. powered off ("Klipper is
+  disconnected") could not be opened from the overview, even though its dashboard lets you turn it on via its power
+  devices. The compact overview already behaved this way.
+
+- **Notifications of New Printers (Android)**: Notifications of a newly added printer now show up right away.
+  Previously Android dropped them until the app was restarted, as the printer's notification channels were only
+  created on app start.
+
+- **Minor Fixes**: Various smaller fixes to the file details, Spoolman (forms, detail pane, long names), dashboard
+  cards on narrow phones, the firmware retraction and fan cards, number and text inputs, the search order in
+  selection lists, the header of selection lists with large fonts and the formatting of sent G-code commands. The unused "Group Slider Cards" setting was removed.
+
 ## [2.9.14] - 2026-10-03
 
 ### Enhancements
